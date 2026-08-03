@@ -77,7 +77,6 @@ class SavedChatActivity : AppCompatActivity() {
 
         // Load partner avatar in toolbar
         val ivToolbarAvatar = findViewById<CircleImageView>(R.id.ivToolbarAvatar)
-        val partnerUid = chat.partnerAccountId
         if (partnerUid != null && !AuthActivity.TEST_MODE) {
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid).child("avatar")
