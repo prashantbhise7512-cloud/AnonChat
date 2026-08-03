@@ -1,22 +1,21 @@
 {
   "project_info": {
-    "project_number": "872405600781",
-    "firebase_url": "https://vibelockchat-e5761-default-rtdb.firebaseio.com",
-    "project_id": "vibelockchat-e5761",
-    "storage_bucket": "vibelockchat-e5761.firebasestorage.app"
+    "project_number": "724303260069",
+    "project_id": "anonchat-8aabe",
+    "storage_bucket": "anonchat-8aabe.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:872405600781:android:d1e7a6acf8daeb185de344",
+        "mobilesdk_app_id": "1:724303260069:android:3340e8e3955fbbddbde04c",
         "android_client_info": {
-          "package_name": "com.anonchat.com"
+          "package_name": "com.anonchat.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCrJX3s9YwpJHowIkUggdMyIdhQmsEoY3U"
+          "current_key": "AIzaSyDvq7jeUVNAZoFX0iQFloiYwk1NkxKOtFw"
         }
       ],
       "services": {
