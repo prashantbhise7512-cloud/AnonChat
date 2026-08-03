@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="bubble_radius">18dp</dimen>
+    <dimen name="bubble_radius_small">4dp</dimen>
+    <dimen name="bubble_padding_h">14dp</dimen>
+    <dimen name="bubble_padding_v">10dp</dimen>
+    <dimen name="message_text_size">16sp</dimen>
+    <dimen name="timestamp_text_size">11sp</dimen>
+    <dimen name="sender_text_size">13sp</dimen>
+    <dimen name="input_corner_radius">24dp</dimen>
+    <dimen name="toolbar_elevation">4dp</dimen>
+    <dimen name="message_max_width">280dp</dimen>
+</resources>

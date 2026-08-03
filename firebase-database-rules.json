@@ -1,0 +1,55 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        "profile": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['displayName'])",
+          "displayName": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50"
+          },
+          "gender": {
+            ".validate": "newData.val() === null || newData.val() === 'Male' || newData.val() === 'Female' || newData.val() === 'Other' || newData.val() === 'Prefer not to say'"
+          },
+          "age": {
+            ".validate": "newData.val() === null || (newData.isNumber() && newData.val() >= 13 && newData.val() <= 120)"
+          },
+          "city": {
+            ".validate": "newData.val() === null || (newData.isString() && newData.val().length <= 100)"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "avatar": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && newData.val().length <= 200000"
+        },
+        "lastActive": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    "queue": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "sessions": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$sessionId": {
+        "messages": {
+          ".indexOn": ["timestamp"]
+        }
+      }
+    },
+    "presence": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

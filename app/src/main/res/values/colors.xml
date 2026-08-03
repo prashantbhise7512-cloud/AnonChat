@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary brand colors -->
+    <color name="primary">#FF1B72C0</color>
+    <color name="primary_dark">#FF155DA0</color>
+    <color name="primary_light">#FFE3F2FD</color>
+
+    <!-- Accent -->
+    <color name="accent">#FF00BFA5</color>
+
+    <!-- Chat bubbles -->
+    <color name="bubble_mine">#FF1B72C0</color>
+    <color name="bubble_mine_text">#FFFFFFFF</color>
+    <color name="bubble_other">#FFFFFFFF</color>
+    <color name="bubble_other_text">#FF1C1C1E</color>
+
+    <!-- UI colors -->
+    <color name="background">#FFF5F7FA</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="on_surface">#FF1C1C1E</color>
+    <color name="text_secondary">#FF8E8E93</color>
+    <color name="input_background">#FFF2F2F7</color>
+    <color name="divider">#FFE5E5EA</color>
+    <color name="online_green">#FF34C759</color>
+
+    <!-- Standard -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Status bar -->
+    <color name="status_bar">#FF145A9E</color>
+
+    <!-- Action buttons -->
+    <color name="save_button_bg">#FFE8F5E9</color>
+    <color name="save_button_text">#FF2E7D32</color>
+    <color name="leave_button_bg">#FFFFEBEE</color>
+    <color name="leave_button_text">#FFC62828</color>
+    <color name="new_button_bg">#FFE3F2FD</color>
+    <color name="new_button_text">#FF1565C0</color>
+</resources>

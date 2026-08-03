@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AnonChat</string>
+    <string name="hint_message">Type a message…</string>
+    <string name="send">Send</string>
+    <string name="chat_room_title">AnonChat</string>
+    <string name="online_users">%d online</string>
+    <string name="empty_chat_title">No messages yet</string>
+    <string name="empty_chat_subtitle">Be the first to say something!</string>
+    <string name="your_identity">You are %s</string>
+    <string name="save_chat">Save Chat</string>
+    <string name="leave_chat">Leave Chat</string>
+    <string name="save_chat_empty">No messages to save!</string>
+    <string name="leave_confirm_title">Leave Chat?</string>
+    <string name="leave_confirm_message">You\'ll get a new identity next time.</string>
+    <string name="chat_saved">Chat saved!</string>
+    <string name="new_chat">New Chat</string>
+    <string name="searching">Searching…</string>
+    <string name="searching_subtitle">Looking for a random stranger</string>
+    <string name="connected_with">Chatting with %s</string>
+    <string name="stranger_disconnected">Stranger has disconnected</string>
+    <string name="enter_chat_room">Live Chat</string>
+    <string name="saved_chats">Saved Chats</string>
+    <string name="no_saved_chats">No saved chats yet</string>
+    <string name="no_saved_chats_hint">Join the chat room and save conversations</string>
+
+    <!-- Auth Screen -->
+    <string name="auth_heading">Verify your phone</string>
+    <string name="auth_subtitle">We\'ll send a one-time code to verify your number. Your phone number stays private.</string>
+    <string name="auth_phone_hint">Phone number</string>
+    <string name="auth_send_code">Send Code</string>
+    <string name="auth_otp_hint">Enter 6-digit code</string>
+    <string name="auth_verify">Verify</string>
+    <string name="auth_resend_code">Resend Code</string>
+    <string name="auth_countdown">Resend in %ds</string>
+    <string name="auth_test_mode_notice">TEST MODE: OTP verification is bypassed. Any phone number and any code will sign you in.</string>
+
+    <!-- Profile Screen -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_name_hint">Display Name</string>
+    <string name="profile_gender_hint">Gender</string>
+    <string name="profile_age_hint">Age</string>
+    <string name="profile_city_hint">City</string>
+    <string name="profile_save">Save Profile</string>
+    <string name="profile_saved">Profile saved!</string>
+    <string name="profile_private_note">Your gender, age, and city are private and never shared with other users.</string>
+    <string name="profile_change_photo">Change Photo</string>
+
+    <!-- Chat List -->
+    <string name="logout">Logout</string>
+    <string name="logout_confirm_title">Logout?</string>
+    <string name="logout_confirm_message">You will need to verify your phone number again to log back in.</string>
+    <string name="logout_confirm">Logout</string>
+    <string name="cancel">Cancel</string>
+</resources>

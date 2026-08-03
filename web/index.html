@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnonChat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Screen 0: Auth Screen (Phone OTP Verification) -->
+    <div id="authScreen" class="screen auth-screen">
+        <div class="auth-content">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" width="64" height="64" fill="white">
+                    <path d="M20,2H4C2.9,2 2,2.9 2,4v18l4,-4h14c1.1,0 2,-0.9 2,-2V4C22,2.9 21.1,2 20,2z"/>
+                </svg>
+            </div>
+            <h1 class="auth-title">AnonChat</h1>
+            <h2 class="auth-heading">Verify your phone</h2>
+            <p class="auth-subtitle">Your number is only used for verification. It's never shared with anyone.</p>
+
+            <!-- Step 1: Phone Input -->
+            <div id="authStepPhone" class="auth-step auth-step-active">
+                <div class="phone-input-group">
+                    <select id="countryCodeSelect" class="country-code-select">
+                        <option value="+1">+1 (US)</option>
+                        <option value="+44">+44 (UK)</option>
+                        <option value="+91" selected>+91 (IN)</option>
+                        <option value="+61">+61 (AU)</option>
+                        <option value="+81">+81 (JP)</option>
+                        <option value="+49">+49 (DE)</option>
+                        <option value="+33">+33 (FR)</option>
+                        <option value="+86">+86 (CN)</option>
+                        <option value="+55">+55 (BR)</option>
+                        <option value="+971">+971 (AE)</option>
+                        <option value="+966">+966 (SA)</option>
+                        <option value="+65">+65 (SG)</option>
+                        <option value="+82">+82 (KR)</option>
+                        <option value="+39">+39 (IT)</option>
+                        <option value="+34">+34 (ES)</option>
+                        <option value="+7">+7 (RU)</option>
+                        <option value="+62">+62 (ID)</option>
+                        <option value="+63">+63 (PH)</option>
+                        <option value="+234">+234 (NG)</option>
+                        <option value="+27">+27 (ZA)</option>
+                    </select>
+                    <input type="tel" id="phoneInput" class="phone-input" placeholder="Phone number" autocomplete="tel"/>
+                </div>
+                <button id="btnSendCode" class="btn-primary btn-send-code">Send Code</button>
+            </div>
+
+            <!-- Step 2: OTP Verification -->
+            <div id="authStepOtp" class="auth-step">
+                <p class="otp-instruction">Enter the 6-digit code sent to <span id="otpPhoneDisplay"></span></p>
+                <input type="text" id="otpInput" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code"/>
+                <button id="btnVerifyOtp" class="btn-primary btn-verify-otp">Verify</button>
+                <button id="btnResendCode" class="btn-secondary btn-resend-code" disabled>
+                    Resend Code <span id="resendCountdown"></span>
+                </button>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="authLoading" class="auth-loading hidden">
+                <div class="spinner"></div>
+                <p class="loading-text">Please wait...</p>
+            </div>
+
+            <!-- Test Mode Notice (shown from app.js only while TEST_MODE is true) -->
+            <div id="authTestModeNotice" class="auth-test-notice hidden">
+                <p>TEST MODE: OTP verification is bypassed. Any phone number and any code will sign you in.</p>
+            </div>
+
+            <!-- Error Message Container -->
+            <div id="authError" class="auth-error hidden">
+                <p id="authErrorMessage"></p>
+            </div>
+
+            <!-- reCAPTCHA Container -->
+            <div id="recaptcha-container"></div>
+        </div>
+    </div>
+
+    <!-- Screen 1: Welcome -->
+    <div id="welcomeScreen" class="screen welcome-screen hidden">
+        <div class="welcome-content">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" width="64" height="64" fill="white">
+                    <path d="M20,2H4C2.9,2 2,2.9 2,4v18l4,-4h14c1.1,0 2,-0.9 2,-2V4C22,2.9 21.1,2 20,2z"/>
+                </svg>
+            </div>
+            <h1 class="app-title">AnonChat</h1>
+            <p class="tagline">Choose your display name</p>
+            <div class="identity-card">
+                <p class="identity-label">This name will be visible to others</p>
+                <input type="text" id="welcomeNameInput" class="welcome-name-input" maxlength="50" placeholder="AnnoUser" value=""/>
+                <p class="identity-hint">You can change it anytime in Profile</p>
+            </div>
+            <button id="btnEnterApp" class="btn-primary">Get Started</button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Chat List -->
+    <div id="chatListScreen" class="screen chat-list-screen hidden">
+        <header class="list-header">
+            <h2>AnonChat</h2>
+            <span id="listIdentity" class="list-identity-badge"></span>
+        </header>
+        <!-- Chats Section (toggled by tab) -->
+        <div id="chatsSection" class="chats-section">
+            <div class="list-actions">
+                <button id="btnJoinRoom" class="btn-join-room">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M20,2H4C2.9,2 2,2.9 2,4v18l4,-4h14c1.1,0 2,-0.9 2,-2V4C22,2.9 21.1,2 20,2z"/>
+                    </svg>
+                    Live Chat
+                </button>
+            </div>
+            <div class="list-section-title">Saved Chats</div>
+            <div id="savedChatsList" class="saved-chats-list">
+                <div id="noSavedChats" class="no-saved-chats">
+                    <p>No saved chats yet</p>
+                    <p class="sub">Join the chat room and save conversations</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Section (hidden by default) -->
+        <div id="profileSection" class="profile-section hidden">
+            <div class="profile-form">
+                <!-- Profile Picture -->
+                <div class="profile-avatar-section">
+                    <div class="profile-avatar" id="profileAvatar">
+                        <svg viewBox="0 0 24 24" width="40" height="40" fill="#8e8e93" id="avatarPlaceholder">
+                            <path d="M12,12c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4 -4,1.79 -4,4 1.79,4 4,4zm0,2c-2.67,0 -8,1.34 -8,4v2h16v-2c0,-2.66 -5.33,-4 -8,-4z"/>
+                        </svg>
+                        <img id="avatarImage" class="avatar-image hidden" alt="Profile"/>
+                    </div>
+                    <p class="profile-uid" id="profileUid"></p>
+                    <label for="avatarInput" class="btn-change-avatar">Change Photo</label>
+                    <input type="file" id="avatarInput" accept="image/*" class="hidden"/>
+                </div>
+
+                <div class="profile-field">
+                    <label for="profileName">Display Name</label>
+                    <input type="text" id="profileName" maxlength="50" placeholder="AnnoUser"/>
+                    <span class="field-error" id="nameError"></span>
+                </div>
+                <div class="profile-field">
+                    <label for="profileGender">Gender</label>
+                    <select id="profileGender">
+                        <option value="">— Select —</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                        <option value="Prefer not to say">Prefer not to say</option>
+                    </select>
+                </div>
+                <div class="profile-field">
+                    <label for="profileAge">Age</label>
+                    <input type="number" id="profileAge" min="13" max="120" placeholder=""/>
+                    <span class="field-error" id="ageError"></span>
+                </div>
+                <div class="profile-field">
+                    <label for="profileCity">City</label>
+                    <input type="text" id="profileCity" maxlength="100" placeholder=""/>
+                    <span class="field-error" id="cityError"></span>
+                </div>
+                <button id="btnSaveProfile" class="btn-save-profile">Save Profile</button>
+                <p id="profileSaveStatus" class="profile-save-status"></p>
+
+                <!-- Blocked Users Navigation -->
+                <button id="btnShowBlocked" class="btn-show-blocked">Blocked Users ▸</button>
+
+                <button id="btnLogout" class="btn-logout btn-logout-profile">Logout</button>
+            </div>
+        </div>
+
+        <!-- Blocked Users Screen (inside chatListScreen) -->
+        <div id="blockedScreen" class="blocked-screen hidden">
+            <header class="blocked-header">
+                <button id="btnBackFromBlocked" class="btn-back">←</button>
+                <h2>Blocked Users</h2>
+            </header>
+            <div class="blocked-screen-content">
+                <div id="blockedUsersList" class="blocked-users-list">
+                    <p class="blocked-users-empty" id="noBlockedUsers">No blocked users</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab bar at bottom of Chat List -->
+        <div class="tab-bar">
+            <button id="tabChats" class="tab-item tab-active">💬 Chats</button>
+            <button id="tabProfile" class="tab-item">👤 Profile</button>
+        </div>
+    </div>
+
+    <!-- Screen 3: Live Chat Room -->
+    <div id="chatScreen" class="screen chat-screen hidden">
+        <header class="chat-header">
+            <button id="btnBackToList" class="btn-back">←</button>
+            <div class="header-center">
+                <h2 class="header-title" id="chatHeaderTitle">Chat Room</h2>
+                <div class="header-online" id="headerOnline">
+                    <span class="online-dot"></span>
+                    <span id="onlineCount">1 online</span>
+                </div>
+            </div>
+            <span id="identityBadge" class="identity-badge"></span>
+        </header>
+        <div id="messagesContainer" class="messages-container">
+            <div id="emptyState" class="empty-state">
+                <svg viewBox="0 0 24 24" width="80" height="80" fill="#ccc">
+                    <path d="M20,2H4C2.9,2 2,2.9 2,4v18l4,-4h14c1.1,0 2,-0.9 2,-2V4C22,2.9 21.1,2 20,2zM20,16H5.17L4,17.17V4h16V16z"/>
+                    <path d="M7,9h10v2H7z"/><path d="M7,12h7v2H7z"/>
+                </svg>
+                <p class="empty-title">No messages yet</p>
+                <p class="empty-subtitle">Be the first to say something!</p>
+            </div>
+        </div>
+        <div class="action-bar">
+            <button id="btnSaveChat" class="btn-action btn-save">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M17,3H5C3.89,3 3,3.9 3,5v14c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V7L17,3zM12,17c-1.66,0-3,-1.34-3,-3s1.34,-3 3,-3 3,1.34 3,3-1.34,3-3,3zM15,9H5V5h10V9z"/>
+                </svg>
+                Save Chat
+            </button>
+            <button id="btnNewChat" class="btn-action btn-new">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M12,5V1L7,6l5,5V7c3.31,0 6,2.69 6,6s-2.69,6-6,6-6,-2.69-6,-6H4c0,4.42 3.58,8 8,8s8,-3.58 8,-8-3.58,-8-8,-8z"/>
+                </svg>
+                New Chat
+            </button>
+            <button id="btnLeaveChat" class="btn-action btn-leave">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M10.09,15.59L11.5,17l5,-5-5,-5-1.41,1.41L12.67,11H3v2h9.67l-2.58,2.59zM19,3H5C3.89,3 3,3.9 3,5v4h2V5h14v14H5v-4H3v4c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V5C21,3.9 20.1,3 19,3z"/>
+                </svg>
+                Leave
+            </button>
+        </div>
+        <div class="input-area">
+            <div class="input-wrapper">
+                <input type="text" id="messageInput" placeholder="Type a message…" autocomplete="off" maxlength="500"/>
+                <button id="btnSend" class="btn-send" disabled>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+                        <path d="M2.01,21L23,12 2.01,3 2,10l15,2-15,2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen 4: View Saved Chat (with continue chatting) -->
+    <div id="savedChatView" class="screen chat-screen hidden">
+        <header class="chat-header saved-header">
+            <button id="btnBackFromSaved" class="btn-back">←</button>
+            <img id="savedChatAvatar" class="saved-chat-header-avatar" alt="" />
+            <div class="header-center">
+                <h2 class="header-title" id="savedChatTitle">Saved Chat</h2>
+                <span id="savedChatStatus" class="saved-badge">History</span>
+            </div>
+            <button id="btnDeleteSaved" class="btn-delete-saved" style="display:none;">🗑️</button>
+            <button id="btnSavedMenu" class="btn-saved-menu">⋮</button>
+            <div id="savedMenuDropdown" class="saved-menu-dropdown hidden">
+                <button id="btnDeleteFromMenu" class="saved-menu-item">🗑️ Delete</button>
+                <button id="btnBlockUser" class="saved-menu-item saved-menu-item-danger">🚫 Block</button>
+            </div>
+        </header>
+        <div id="savedMessagesContainer" class="messages-container"></div>
+        <div class="input-area">
+            <div class="input-wrapper">
+                <input type="text" id="savedMessageInput" placeholder="Type a message…" autocomplete="off" maxlength="500"/>
+                <button id="btnSavedSend" class="btn-send" disabled>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+                        <path d="M2.01,21L23,12 2.01,3 2,10l15,2-15,2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
