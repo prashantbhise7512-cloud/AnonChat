@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "724303260069",
+    "firebase_url": "https://anonchat-8aabe-default-rtdb.firebaseio.com",
     "project_id": "anonchat-8aabe",
     "storage_bucket": "anonchat-8aabe.firebasestorage.app"
   },
