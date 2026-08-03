@@ -119,23 +119,39 @@ class MainActivity : AppCompatActivity() {
         currentPartnerName = null
         editMessage.isEnabled = false
 
-        // Check if anyone is in the queue
-        queueRef.orderByChild("joinedAt").limitToFirst(1)
+        // Add self to queue first, then try to match
+        val queueEntry = mapOf(
+            "userId" to userId,
+            "userName" to userName,
+            "joinedAt" to ServerValue.TIMESTAMP
+        )
+        queueRef.child(userId).setValue(queueEntry).addOnSuccessListener {
+            tryMatchFromQueue()
+        }
+
+        // Also listen for being matched by someone else
+        waitForMatch()
+    }
+
+    private fun tryMatchFromQueue() {
+        if (currentSessionId != null) return // Already matched
+
+        queueRef.orderByChild("joinedAt").limitToFirst(10)
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    if (snapshot.childrenCount > 0) {
-                        // Someone is waiting — match with them
-                        val partnerSnapshot = snapshot.children.first()
-                        val partnerId = partnerSnapshot.child("userId").getValue(String::class.java) ?: return
-                        val partnerName = partnerSnapshot.child("userName").getValue(String::class.java) ?: "Stranger"
+                    if (currentSessionId != null) return // Already matched
+
+                    for (child in snapshot.children) {
+                        val partnerId = child.child("userId").getValue(String::class.java) ?: continue
+                        val partnerName = child.child("userName").getValue(String::class.java) ?: "Stranger"
 
                         // Don't match with self
-                        if (partnerId == userId) return
+                        if (partnerId == userId) continue
 
-                        // Remove partner from queue
+                        // Found a partner — remove both from queue and create session
                         queueRef.child(partnerId).removeValue()
+                        queueRef.child(userId).removeValue()
 
-                        // Create session
                         val sessionId = UUID.randomUUID().toString()
                         val sessionData = mapOf(
                             "user1" to mapOf("userId" to userId, "userName" to userName),
@@ -144,18 +160,14 @@ class MainActivity : AppCompatActivity() {
                             "active" to true
                         )
                         sessionsRef.child(sessionId).setValue(sessionData)
-
                         connectToSession(sessionId, partnerName)
-                    } else {
-                        // No one waiting — add self to queue and wait
-                        val queueEntry = mapOf(
-                            "userId" to userId,
-                            "userName" to userName,
-                            "joinedAt" to ServerValue.TIMESTAMP
-                        )
-                        queueRef.child(userId).setValue(queueEntry)
-                        waitForMatch()
+                        return
                     }
+
+                    // No partner found yet — retry in 2 seconds
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        if (currentSessionId == null) tryMatchFromQueue()
+                    }, 2000)
                 }
 
                 override fun onCancelled(error: DatabaseError) {}
