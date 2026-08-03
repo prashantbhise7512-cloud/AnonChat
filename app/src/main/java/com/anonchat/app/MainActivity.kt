@@ -142,7 +142,7 @@ class MainActivity : AppCompatActivity() {
                         matchedPartnerName = partnerName
                         // Claim them by removing their queue entry, atomically, right now.
                         currentData.child(waitingChild.key!!).value = null
-                        return Transaction.Result.success(currentData)
+                        return Transaction.success(currentData)
                     }
                 }
 
@@ -150,7 +150,7 @@ class MainActivity : AppCompatActivity() {
                 currentData.child(userId).child("userId").value = userId
                 currentData.child(userId).child("userName").value = userName
                 currentData.child(userId).child("joinedAt").value = System.currentTimeMillis()
-                return Transaction.Result.success(currentData)
+                return Transaction.success(currentData)
             }
 
             override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
