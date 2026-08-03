@@ -61,10 +61,10 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:cardCornerRadius="16dp"
-                android:cardElevation="4dp"
                 android:padding="20dp"
-                app:cardBackgroundColor="@color/surface">
+                app:cardBackgroundColor="@color/surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
