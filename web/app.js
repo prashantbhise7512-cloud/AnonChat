@@ -64,13 +64,13 @@ const TestSession = {
 
 // === Firebase Configuration (placeholder — replace with real project config) ===
 const firebaseConfig = {
-    apiKey: "AIzaSyCrJX3s9YwpJHowIkUggdMyIdhQmsEoY3U",
-    authDomain: "vibelockchat-e5761.firebaseapp.com",
-    databaseURL: "https://vibelockchat-e5761-default-rtdb.firebaseio.com",
-    projectId: "vibelockchat-e5761",
-    storageBucket: "vibelockchat-e5761.firebasestorage.app",
-    messagingSenderId: "872405600781",
-    appId: "1:872405600781:android:d1e7a6acf8daeb185de344"
+    apiKey: "AIzaSyDvq7jeUVNAZoFX0iQFloiYwk1NkxKOtFw",
+    authDomain: "anonchat-8aabe.firebaseapp.com",
+    databaseURL: "https://anonchat-8aabe-default-rtdb.firebaseio.com",
+    projectId: "anonchat-8aabe",
+    storageBucket: "anonchat-8aabe.firebasestorage.app",
+    messagingSenderId: "724303260069",
+    appId: "1:724303260069:android:3340e8e3955fbbddbde04c"
 };
 
 if (!TEST_MODE) {
