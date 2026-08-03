@@ -6,6 +6,7 @@ data class SavedChat(
     val userName: String = "",
     val partnerName: String = "",
     val partnerAccountId: String? = null,
+    val threadId: String? = null,          // Firebase thread for ongoing messaging
     val partnerGender: String? = null,
     val partnerAge: Int? = null,
     val partnerCity: String? = null,

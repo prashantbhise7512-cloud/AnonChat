@@ -41,6 +41,12 @@ object ChatStorage {
                 put("id", chat.id)
                 put("savedAt", chat.savedAt)
                 put("userName", chat.userName)
+                put("partnerName", chat.partnerName)
+                put("partnerAccountId", chat.partnerAccountId ?: "")
+                put("threadId", chat.threadId ?: "")
+                put("partnerGender", chat.partnerGender ?: "")
+                put("partnerAge", chat.partnerAge ?: -1)
+                put("partnerCity", chat.partnerCity ?: "")
                 val msgsArray = JSONArray()
                 chat.messages.forEach { msg ->
                     msgsArray.put(JSONObject().apply {
@@ -49,6 +55,7 @@ object ChatStorage {
                         put("senderName", msg.senderName)
                         put("message", msg.message)
                         put("timestamp", msg.timestamp)
+                        put("status", msg.status)
                     })
                 }
                 put("messages", msgsArray)
@@ -73,13 +80,20 @@ object ChatStorage {
                         senderId = m.getString("senderId"),
                         senderName = m.getString("senderName"),
                         message = m.getString("message"),
-                        timestamp = m.getLong("timestamp")
+                        timestamp = m.getLong("timestamp"),
+                        status = m.optString("status", "sent")
                     ))
                 }
                 result.add(SavedChat(
                     id = obj.getString("id"),
                     savedAt = obj.getLong("savedAt"),
                     userName = obj.getString("userName"),
+                    partnerName = obj.optString("partnerName", ""),
+                    partnerAccountId = obj.optString("partnerAccountId", "").ifEmpty { null },
+                    threadId = obj.optString("threadId", "").ifEmpty { null },
+                    partnerGender = obj.optString("partnerGender", "").ifEmpty { null },
+                    partnerAge = obj.optInt("partnerAge", -1).takeIf { it >= 0 },
+                    partnerCity = obj.optString("partnerCity", "").ifEmpty { null },
                     messages = messages
                 ))
             }

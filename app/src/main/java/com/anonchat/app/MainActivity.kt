@@ -262,18 +262,59 @@ class MainActivity : AppCompatActivity() {
 
     private fun listenForPartnerSave(sessionId: String) {
         sessionsRef.child(sessionId).child("savedBy")
-            .addChildEventListener(object : ChildEventListener {
-                override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
-                    val saverId = snapshot.key ?: return
-                    if (saverId != userId && currentSessionId == sessionId) {
-                        Toast.makeText(this@MainActivity, "Partner has saved the chat", Toast.LENGTH_SHORT).show()
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val savers = snapshot.children.map { it.key ?: "" }.filter { it.isNotEmpty() }
+                    val iSaved = savers.contains(userId)
+                    val partnerSaved = savers.any { it != userId }
+
+                    when {
+                        // Both saved — trigger local save if I haven't saved yet
+                        iSaved && partnerSaved -> {
+                            // If chat not already saved locally, save it now
+                            val existing = ChatStorage.getSavedChats(this@MainActivity)
+                            val alreadySaved = existing.any { chat ->
+                                chat.messages.any { it.senderId == userId } &&
+                                    chat.messages.any { it.senderId != userId }
+                            }
+                            if (!alreadySaved) {
+                                triggerSave()
+                            }
+                            Toast.makeText(this@MainActivity, "Chat saved by both users ✓", Toast.LENGTH_SHORT).show()
+                        }
+                        // Partner saved, I haven't yet
+                        partnerSaved && !iSaved -> {
+                            Toast.makeText(this@MainActivity, "Partner saved the chat", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
-                override fun onChildChanged(s: DataSnapshot, p: String?) {}
-                override fun onChildRemoved(s: DataSnapshot) {}
-                override fun onChildMoved(s: DataSnapshot, p: String?) {}
                 override fun onCancelled(e: DatabaseError) {}
             })
+    }
+
+    private fun triggerSave() {
+        val partnerId = messages.firstOrNull { it.senderId != userId }?.senderId
+        val partnerName = currentPartnerName ?: "AnnoUser"
+        if (partnerId != null && !AuthActivity.TEST_MODE) {
+            val db = com.google.firebase.database.FirebaseDatabase.getInstance()
+            db.reference.child("users").child(partnerId).child("profile")
+                .addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
+                    override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                        doSaveChat(
+                            snapshot.child("displayName").getValue(String::class.java) ?: partnerName,
+                            snapshot.child("gender").getValue(String::class.java),
+                            snapshot.child("age").getValue(Long::class.java)?.toInt(),
+                            snapshot.child("city").getValue(String::class.java),
+                            null
+                        )
+                    }
+                    override fun onCancelled(e: com.google.firebase.database.DatabaseError) {
+                        doSaveChat(partnerName, null, null, null, null)
+                    }
+                })
+        } else {
+            doSaveChat(partnerName, null, null, null, null)
+        }
     }
 
     private fun sendMessage() {
@@ -343,39 +384,32 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.save_chat_empty, Toast.LENGTH_SHORT).show()
             return
         }
-
-        val partnerId = messages.firstOrNull { it.senderId != userId }?.senderId
-        val partnerName = currentPartnerName ?: "AnnoUser"
-
-        if (partnerId != null && !AuthActivity.TEST_MODE) {
-            // Fetch partner's profile (no avatar — too heavy to exchange)
-            val db = com.google.firebase.database.FirebaseDatabase.getInstance()
-            db.reference.child("users").child(partnerId).child("profile")
-                .addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
-                    override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
-                        val gender = snapshot.child("gender").getValue(String::class.java)
-                        val age = snapshot.child("age").getValue(Long::class.java)?.toInt()
-                        val city = snapshot.child("city").getValue(String::class.java)
-                        val displayName = snapshot.child("displayName").getValue(String::class.java)
-                        doSaveChat(displayName ?: partnerName, gender, age, city, null)
-                    }
-                    override fun onCancelled(e: com.google.firebase.database.DatabaseError) {
-                        doSaveChat(partnerName, null, null, null, null)
-                    }
-                })
-        } else {
-            doSaveChat(partnerName, null, null, null, null)
+        if (currentSessionId == null) {
+            Toast.makeText(this, "Session has ended", Toast.LENGTH_SHORT).show()
+            return
         }
+        // Mark that this user wants to save.
+        // Actual local save happens in listenForPartnerSave when BOTH users have tapped Save.
+        sessionsRef.child(currentSessionId!!).child("savedBy").child(userId).setValue(true)
+        Toast.makeText(this, "Waiting for partner to save too…", Toast.LENGTH_SHORT).show()
+        btnSaveChat.visibility = View.GONE
     }
 
     private fun doSaveChat(partnerName: String, gender: String?, age: Int?, city: String?, avatar: String?) {
         val partnerId = messages.firstOrNull { it.senderId != userId }?.senderId
+
+        // Stable thread id: sorted user ids joined — same on both devices
+        val threadId = if (partnerId != null) {
+            listOf(userId, partnerId).sorted().joinToString("_")
+        } else null
+
         val savedChat = SavedChat(
             id = UUID.randomUUID().toString(),
             savedAt = System.currentTimeMillis(),
             userName = userName,
             partnerName = partnerName,
             partnerAccountId = partnerId,
+            threadId = threadId,
             partnerGender = gender,
             partnerAge = age,
             partnerCity = city,

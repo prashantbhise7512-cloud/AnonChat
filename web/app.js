@@ -1015,6 +1015,7 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         if (!TEST_MODE) {
             listenForFirebaseMessages(sessionId);
             listenForPartnerDisconnect(sessionId);
+            listenForBothSaved(sessionId);
         }
 
         heartbeatInterval = setInterval(() => {}, 5000);
@@ -1059,6 +1060,24 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
                 headerOnline.style.display = "flex";
                 currentSessionId = null;
                 currentPartner = null;
+            }
+        });
+    }
+
+    function listenForBothSaved(sessionId) {
+        firebase.database().ref("sessions/" + sessionId + "/savedBy").on("value", function(snapshot) {
+            var savers = [];
+            snapshot.forEach(function(child) { savers.push(child.key); });
+            var iSaved = savers.includes(userId);
+            var partnerSaved = savers.some(function(id) { return id !== userId; });
+
+            if (iSaved && partnerSaved) {
+                // Both agreed — save locally
+                performSaveChat();
+                addSystemMessage("Chat saved by both users ✓");
+            } else if (partnerSaved && !iSaved) {
+                addSystemMessage("Partner wants to save this chat. Tap Save to confirm.");
+                btnSaveChat.style.display = "";  // Re-show save button so user can confirm
             }
         });
     }
@@ -1254,14 +1273,15 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         if (allMessages.length === 0) { alert("No messages to save!"); return; }
         if (!currentSessionId) { alert("Chat session has ended."); return; }
 
-        // Save locally and notify the partner
-        performSaveChat();
-        addSystemMessage("You have saved the chat");
-
+        // Mark this user as wanting to save. Actual save happens when BOTH users tap Save.
         if (TEST_MODE) {
+            // Test mode: save immediately (no partner coordination)
+            performSaveChat();
+            addSystemMessage("You have saved the chat");
             channel.postMessage({ type: "chatSaved", sessionId: currentSessionId, saverId: userId });
         } else {
-            sessionsRef.child(currentSessionId).child("savedBy").child(userId).set(true);
+            firebase.database().ref("sessions/" + currentSessionId + "/savedBy/" + userId).set(true);
+            addSystemMessage("Waiting for partner to save too…");
         }
         btnSaveChat.style.display = "none";
     });

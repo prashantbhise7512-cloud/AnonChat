@@ -7,50 +7,83 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <!-- Header -->
-    <com.google.android.material.appbar.MaterialToolbar
+    <!-- Custom header bar (replaces MaterialToolbar title/subtitle) -->
+    <LinearLayout
         android:id="@+id/toolbar"
         android:layout_width="0dp"
         android:layout_height="64dp"
         android:background="@color/primary"
         android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingEnd="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:navigationIcon="@drawable/ic_back"
-        app:navigationIconTint="@color/white"
-        app:subtitleTextColor="#CCFFFFFF"
-        app:titleTextColor="@color/white"
-        app:contentInsetStartWithNavigation="0dp"
-        tools:title="Chat with SilentFox" />
+        app:layout_constraintTop_toTopOf="parent">
 
-    <!-- Partner avatar in toolbar -->
-    <de.hdodenhof.circleimageview.CircleImageView
-        android:id="@+id/ivToolbarAvatar"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_marginStart="56dp"
-        android:layout_marginTop="14dp"
-        android:src="@drawable/ic_default_avatar"
-        android:visibility="visible"
-        app:civ_border_color="#80FFFFFF"
-        app:civ_border_width="2dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/toolbar" />
+        <!-- Back button -->
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:padding="12dp"
+            android:src="@drawable/ic_back"
+            app:tint="@color/white" />
 
-    <!-- Three-dot menu button -->
-    <ImageView
-        android:id="@+id/btnOverflowMenu"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginTop="12dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Menu"
-        android:padding="10dp"
-        android:src="@drawable/ic_more_vert"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/toolbar" />
+        <!-- Avatar -->
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/ivToolbarAvatar"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="10dp"
+            android:src="@drawable/ic_default_avatar"
+            app:civ_border_color="#80FFFFFF"
+            app:civ_border_width="2dp" />
+
+        <!-- Title + subtitle column — takes all remaining space -->
+        <LinearLayout
+            android:id="@+id/toolbarTitleBlock"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvToolbarTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                tools:text="AnnoUser" />
+
+            <TextView
+                android:id="@+id/tvToolbarSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp"
+                tools:text="last seen 5 min ago" />
+        </LinearLayout>
+
+        <!-- Three-dot menu -->
+        <ImageView
+            android:id="@+id/btnOverflowMenu"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Menu"
+            android:padding="10dp"
+            android:src="@drawable/ic_more_vert"
+            app:tint="@color/white" />
+
+    </LinearLayout>
 
     <!-- Messages -->
     <androidx.recyclerview.widget.RecyclerView
@@ -126,7 +159,6 @@
             </FrameLayout>
 
         </LinearLayout>
-
     </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

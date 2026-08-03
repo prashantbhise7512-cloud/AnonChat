@@ -2,16 +2,18 @@ package com.anonchat.app
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.NestedScrollView
+import androidx.fragment.app.commit
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.anonchat.app.adapter.SavedChatAdapter
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.button.MaterialButton
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -25,9 +27,11 @@ class ChatListActivity : AppCompatActivity() {
     private lateinit var emptyState: LinearLayout
     private lateinit var adapter: SavedChatAdapter
     private lateinit var tvListIdentity: TextView
+    private lateinit var tabChatsContent: LinearLayout
+    private lateinit var tabProfileContent: NestedScrollView
+    private lateinit var bottomNav: BottomNavigationView
 
     private val database by lazy { FirebaseDatabase.getInstance() }
-
     private var displayName: String = "Anonymous"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,10 +42,25 @@ class ChatListActivity : AppCompatActivity() {
         tvListIdentity = findViewById(R.id.tvListIdentity)
         recyclerSavedChats = findViewById(R.id.recyclerSavedChats)
         emptyState = findViewById(R.id.emptyState)
+        tabChatsContent = findViewById(R.id.tabChatsContent)
+        tabProfileContent = findViewById(R.id.tabProfileContent)
+        bottomNav = findViewById(R.id.bottomNav)
         val btnJoinRoom = findViewById<MaterialButton>(R.id.btnJoinRoom)
 
-        // Set up toolbar with overflow menu
-        setSupportActionBar(toolbar)
+        // Bottom navigation tab switching
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_chats -> {
+                    showChatsTab()
+                    true
+                }
+                R.id.nav_profile -> {
+                    openProfile()
+                    false // don't highlight — profile is a separate activity
+                }
+                else -> false
+            }
+        }
 
         // Setup saved chats list
         adapter = SavedChatAdapter(emptyList()) { chat ->
@@ -61,50 +80,40 @@ class ChatListActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Load display name from Firebase profile
         loadDisplayName()
     }
 
     override fun onResume() {
         super.onResume()
+        // Re-select chats tab when returning from profile
+        bottomNav.selectedItemId = R.id.nav_chats
         loadSavedChats()
         loadDisplayName()
         updateLastActive()
     }
 
+    private fun showChatsTab() {
+        tabChatsContent.visibility = View.VISIBLE
+        tabProfileContent.visibility = View.GONE
+    }
+
+    private fun openProfile() {
+        startActivity(Intent(this, ProfileActivity::class.java))
+    }
+
     private fun updateLastActive() {
         val uid = TestSession.currentUserId(this) ?: return
         val now = System.currentTimeMillis()
-        // Save locally
         getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
             .edit().putLong("last_active_$uid", now).apply()
-        // Save to Firebase
         if (!AuthActivity.TEST_MODE) {
             database.reference.child("users").child(uid).child("lastActive").setValue(now)
-        }
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.menu_chat_list, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_profile -> {
-                val intent = Intent(this, ProfileActivity::class.java)
-                startActivity(intent)
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
         }
     }
 
     private fun loadDisplayName() {
         val uid = TestSession.currentUserId(this) ?: return
 
-        // Locally cached name shows immediately (and is the only source in test mode
-        // when the database is unreachable).
         TestSession.cachedDisplayName(this, uid)?.let {
             displayName = it
             tvListIdentity.text = it
@@ -120,7 +129,6 @@ class ChatListActivity : AppCompatActivity() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Fallback to cached value, then default
                 displayName = TestSession.cachedDisplayName(this@ChatListActivity, uid) ?: "AnnoUser"
                 tvListIdentity.text = displayName
             }

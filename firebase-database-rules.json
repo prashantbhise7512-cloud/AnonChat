@@ -50,6 +50,15 @@
     "presence": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "threads": {
+      "$threadId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "messages": {
+          ".indexOn": ["timestamp"]
+        }
+      }
     }
   }
 }
