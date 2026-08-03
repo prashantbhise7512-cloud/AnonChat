@@ -40,6 +40,8 @@
                 android:id="@+id/tvChatName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="true"
                 android:textColor="@color/on_surface"
                 android:textSize="15sp"
                 android:textStyle="bold"

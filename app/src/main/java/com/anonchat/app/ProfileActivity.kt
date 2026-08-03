@@ -29,6 +29,10 @@ import java.io.ByteArrayOutputStream
 
 class ProfileActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_FROM_LOGIN = "EXTRA_FROM_LOGIN"
+    }
+
     private lateinit var toolbar: MaterialToolbar
     private lateinit var tilDisplayName: TextInputLayout
     private lateinit var etDisplayName: TextInputEditText
@@ -37,11 +41,16 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var etAge: TextInputEditText
     private lateinit var tilCity: TextInputLayout
     private lateinit var etCity: TextInputEditText
+    private lateinit var btnEditProfile: MaterialButton
     private lateinit var btnSaveProfile: MaterialButton
+    private lateinit var btnContinueWithoutProfile: MaterialButton
     private lateinit var progressBar: ProgressBar
     private lateinit var tvError: TextView
     private lateinit var ivProfilePic: ImageView
     private lateinit var ivCameraIcon: ImageView
+
+    private var fromLogin = false
+    private var isEditMode = false
 
     private val genderOptions = listOf(
         "— Select —",
@@ -71,6 +80,7 @@ class ProfileActivity : AppCompatActivity() {
         setupClickListeners()
         setupLogout()
         setupBlockedUsers()
+        fromLogin = intent.getBooleanExtra(EXTRA_FROM_LOGIN, false)
         loadProfile()
     }
 
@@ -83,7 +93,9 @@ class ProfileActivity : AppCompatActivity() {
         etAge = findViewById(R.id.etAge)
         tilCity = findViewById(R.id.tilCity)
         etCity = findViewById(R.id.etCity)
+        btnEditProfile = findViewById(R.id.btnEditProfile)
         btnSaveProfile = findViewById(R.id.btnSaveProfile)
+        btnContinueWithoutProfile = findViewById(R.id.btnContinueWithoutProfile)
         progressBar = findViewById(R.id.progressBar)
         tvError = findViewById(R.id.tvError)
         ivProfilePic = findViewById(R.id.ivProfilePic)
@@ -156,11 +168,19 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
+        btnEditProfile.setOnClickListener {
+            setEditMode(true)
+        }
+
         btnSaveProfile.setOnClickListener {
             hideError()
             if (validateFields()) {
-                saveProfile()
+                saveProfile(continueAfterSave = fromLogin)
             }
+        }
+
+        btnContinueWithoutProfile.setOnClickListener {
+            navigateToChatList()
         }
     }
 
@@ -241,7 +261,7 @@ class ProfileActivity : AppCompatActivity() {
                     val age = snapshot.child("age").getValue(Long::class.java)
                     val city = snapshot.child("city").getValue(String::class.java)
 
-                    etDisplayName.setText(displayName ?: "AnnoUser")
+                    etDisplayName.setText(displayName ?: "AnonUser")
 
                     // Set gender spinner selection
                     val genderIndex = if (gender != null) genderOptions.indexOf(gender) else 0
@@ -255,10 +275,11 @@ class ProfileActivity : AppCompatActivity() {
                 } else {
                     // No profile exists — show cached name or defaults
                     etDisplayName.setText(
-                        TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnnoUser"
+                        TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
                     )
                     spinnerGender.setSelection(0)
                 }
+                setEditMode(fromLogin)
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -266,9 +287,10 @@ class ProfileActivity : AppCompatActivity() {
                 if (AuthActivity.TEST_MODE) {
                     // Database not reachable yet — fall back to the local cache.
                     etDisplayName.setText(
-                        TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnnoUser"
+                        TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
                     )
                     spinnerGender.setSelection(0)
+                    setEditMode(fromLogin)
                 } else {
                     showError("Failed to load profile. Please try again.")
                 }
@@ -278,13 +300,13 @@ class ProfileActivity : AppCompatActivity() {
 
     // --- Save Profile ---
 
-    private fun saveProfile() {
+    private fun saveProfile(continueAfterSave: Boolean) {
         val uid = TestSession.currentUserId(this) ?: return
 
         showLoading(true)
         btnSaveProfile.isEnabled = false
 
-        val displayName = etDisplayName.text?.toString()?.trim() ?: "AnnoUser"
+        val displayName = etDisplayName.text?.toString()?.trim() ?: "AnonUser"
         val selectedGender = spinnerGender.selectedItemPosition
         val gender: String? = if (selectedGender == 0) null else genderOptions[selectedGender]
         val ageText = etAge.text?.toString()?.trim() ?: ""
@@ -307,6 +329,11 @@ class ProfileActivity : AppCompatActivity() {
                 showLoading(false)
                 btnSaveProfile.isEnabled = true
                 Toast.makeText(this, getString(R.string.profile_saved), Toast.LENGTH_SHORT).show()
+                if (continueAfterSave) {
+                    navigateToChatList()
+                } else {
+                    setEditMode(false)
+                }
             }
             .addOnFailureListener {
                 showLoading(false)
@@ -314,10 +341,40 @@ class ProfileActivity : AppCompatActivity() {
                 if (AuthActivity.TEST_MODE) {
                     // Database write blocked/unavailable — local cache is enough for now.
                     Toast.makeText(this, getString(R.string.profile_saved), Toast.LENGTH_SHORT).show()
+                    if (continueAfterSave) {
+                        navigateToChatList()
+                    }
                 } else {
                     showError("Failed to save profile. Please try again.")
                 }
             }
+    }
+
+    private fun navigateToChatList() {
+        val intent = Intent(this, ChatListActivity::class.java)
+        startActivity(intent)
+        finish()
+    }
+
+    private fun setEditMode(enabled: Boolean) {
+        isEditMode = enabled
+        etDisplayName.isEnabled = enabled
+        spinnerGender.isEnabled = enabled
+        etAge.isEnabled = enabled
+        etCity.isEnabled = enabled
+        ivCameraIcon.isEnabled = enabled
+        ivProfilePic.isEnabled = enabled
+        val alpha = if (enabled) 1f else 0.6f
+        ivCameraIcon.alpha = alpha
+        ivProfilePic.alpha = alpha
+
+        btnSaveProfile.visibility = if (enabled) View.VISIBLE else View.GONE
+        btnEditProfile.visibility = if (enabled || fromLogin) View.GONE else View.VISIBLE
+        btnContinueWithoutProfile.visibility = if (fromLogin) View.VISIBLE else View.GONE
+
+        if (!enabled) {
+            btnSaveProfile.isEnabled = true
+        }
     }
 
     // --- Blocked Users ---

@@ -22,7 +22,8 @@ import java.util.Locale
 
 class SavedChatAdapter(
     private var chats: List<SavedChat>,
-    private val onClick: (SavedChat) -> Unit
+    private val onClick: (SavedChat) -> Unit,
+    private val onProfileClick: (SavedChat) -> Unit
 ) : RecyclerView.Adapter<SavedChatAdapter.ViewHolder>() {
 
     fun updateChats(newChats: List<SavedChat>) {
@@ -51,7 +52,7 @@ class SavedChatAdapter(
         private val tvUnreadBadge: TextView = itemView.findViewById(R.id.tvUnreadBadge)
 
         fun bind(chat: SavedChat) {
-            val partnerName = chat.messages.firstOrNull { it.senderName != chat.userName }?.senderName ?: "AnnoUser"
+            val partnerName = chat.messages.firstOrNull { it.senderName != chat.userName }?.senderName ?: "AnonUser"
             tvChatName.text = partnerName
             val lastMsg = chat.messages.lastOrNull()
             tvChatPreview.text = if (lastMsg != null) {
@@ -84,7 +85,15 @@ class SavedChatAdapter(
                 else -> ivAvatar.borderColor = itemView.resources.getColor(R.color.primary, itemView.context.theme)
             }
 
-            // Fetch partner's avatar from Firebase on demand
+            if (!chat.partnerAvatar.isNullOrEmpty()) {
+                try {
+                    val bytes = Base64.decode(chat.partnerAvatar, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ivAvatar.setImageBitmap(bitmap)
+                } catch (_: Exception) {}
+            }
+
+            // Fetch partner's avatar from Firebase on demand if not already available locally
             val partnerUid = chat.partnerAccountId
             if (partnerUid != null && !AuthActivity.TEST_MODE) {
                 FirebaseDatabase.getInstance().reference
@@ -102,6 +111,8 @@ class SavedChatAdapter(
                     })
             }
 
+            tvChatName.setOnClickListener { onProfileClick(chat) }
+            ivAvatar.setOnClickListener { onProfileClick(chat) }
             itemView.setOnClickListener { onClick(chat) }
         }
 

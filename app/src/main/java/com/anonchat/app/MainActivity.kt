@@ -294,19 +294,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun triggerSave() {
         val partnerId = messages.firstOrNull { it.senderId != userId }?.senderId
-        val partnerName = currentPartnerName ?: "AnnoUser"
+        val partnerName = currentPartnerName ?: "AnonUser"
         if (partnerId != null && !AuthActivity.TEST_MODE) {
             val db = com.google.firebase.database.FirebaseDatabase.getInstance()
-            db.reference.child("users").child(partnerId).child("profile")
+            db.reference.child("users").child(partnerId)
                 .addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
                     override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
-                        doSaveChat(
-                            snapshot.child("displayName").getValue(String::class.java) ?: partnerName,
-                            snapshot.child("gender").getValue(String::class.java),
-                            snapshot.child("age").getValue(Long::class.java)?.toInt(),
-                            snapshot.child("city").getValue(String::class.java),
-                            null
-                        )
+                        val profileSnapshot = snapshot.child("profile")
+                        val displayName = profileSnapshot.child("displayName").getValue(String::class.java) ?: partnerName
+                        val gender = profileSnapshot.child("gender").getValue(String::class.java)
+                        val age = profileSnapshot.child("age").getValue(Long::class.java)?.toInt()
+                        val city = profileSnapshot.child("city").getValue(String::class.java)
+                        val avatar = snapshot.child("avatar").getValue(String::class.java)
+
+                        doSaveChat(displayName, gender, age, city, avatar)
                     }
                     override fun onCancelled(e: com.google.firebase.database.DatabaseError) {
                         doSaveChat(partnerName, null, null, null, null)
@@ -388,10 +389,13 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Session has ended", Toast.LENGTH_SHORT).show()
             return
         }
-        // Mark that this user wants to save.
-        // Actual local save happens in listenForPartnerSave when BOTH users have tapped Save.
+
+        // Save locally immediately so the user can continue later.
+        triggerSave()
+
+        // Notify partner that this user saved the chat.
         sessionsRef.child(currentSessionId!!).child("savedBy").child(userId).setValue(true)
-        Toast.makeText(this, "Waiting for partner to save too…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Chat saved. You can continue later.", Toast.LENGTH_SHORT).show()
         btnSaveChat.visibility = View.GONE
     }
 

@@ -47,6 +47,7 @@ object ChatStorage {
                 put("partnerGender", chat.partnerGender ?: "")
                 put("partnerAge", chat.partnerAge ?: -1)
                 put("partnerCity", chat.partnerCity ?: "")
+                put("partnerAvatar", chat.partnerAvatar ?: "")
                 val msgsArray = JSONArray()
                 chat.messages.forEach { msg ->
                     msgsArray.put(JSONObject().apply {

@@ -62,12 +62,22 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         // Setup saved chats list
-        adapter = SavedChatAdapter(emptyList()) { chat ->
+        adapter = SavedChatAdapter(emptyList(), { chat ->
             val intent = Intent(this, SavedChatActivity::class.java).apply {
                 putExtra("CHAT_ID", chat.id)
             }
             startActivity(intent)
-        }
+        }, { chat ->
+            val intent = Intent(this, PartnerProfileActivity::class.java).apply {
+                putExtra(PartnerProfileActivity.EXTRA_PARTNER_NAME, chat.partnerName)
+                putExtra(PartnerProfileActivity.EXTRA_PARTNER_GENDER, chat.partnerGender)
+                putExtra(PartnerProfileActivity.EXTRA_PARTNER_AGE, chat.partnerAge)
+                putExtra(PartnerProfileActivity.EXTRA_PARTNER_CITY, chat.partnerCity)
+                putExtra(PartnerProfileActivity.EXTRA_PARTNER_AVATAR_BASE64, chat.partnerAvatar)
+                putExtra(PartnerProfileActivity.EXTRA_PARTNER_ACCOUNT_ID, chat.partnerAccountId)
+            }
+            startActivity(intent)
+        })
         recyclerSavedChats.layoutManager = LinearLayoutManager(this)
         recyclerSavedChats.adapter = adapter
 
@@ -122,13 +132,14 @@ class ChatListActivity : AppCompatActivity() {
         profileRef.child("displayName").addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val name = snapshot.getValue(String::class.java)
+                val name = snapshot.getValue(String::class.java)
                     ?: TestSession.cachedDisplayName(this@ChatListActivity, uid)
-                displayName = name ?: "AnnoUser"
+                displayName = name ?: "AnonUser"
                 tvListIdentity.text = displayName
             }
 
             override fun onCancelled(error: DatabaseError) {
-                displayName = TestSession.cachedDisplayName(this@ChatListActivity, uid) ?: "AnnoUser"
+                displayName = TestSession.cachedDisplayName(this@ChatListActivity, uid) ?: "AnonUser"
                 tvListIdentity.text = displayName
             }
         })

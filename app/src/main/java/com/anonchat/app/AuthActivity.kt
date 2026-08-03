@@ -135,6 +135,11 @@ class AuthActivity : AppCompatActivity() {
         )
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerCountryCode.adapter = adapter
+
+        val defaultIndex = countryCodes.indexOf("+91 IN")
+        if (defaultIndex != -1) {
+            spinnerCountryCode.setSelection(defaultIndex)
+        }
     }
 
     private fun setupClickListeners() {
@@ -185,7 +190,7 @@ class AuthActivity : AppCompatActivity() {
         TestSession.signIn(this, getFullPhoneNumber())
 
         if (auth.currentUser != null) {
-            navigateToChatList()
+            navigateToProfile()
             return
         }
 
@@ -194,7 +199,7 @@ class AuthActivity : AppCompatActivity() {
 
         // Never let a slow/offline sign-in attempt block the flow.
         val fallbackHandler = Handler(Looper.getMainLooper())
-        val fallback = Runnable { navigateToChatList() }
+        val fallback = Runnable { navigateToProfile() }
         fallbackHandler.postDelayed(fallback, 5_000L)
 
         auth.signInAnonymously().addOnCompleteListener(this) {
@@ -202,7 +207,7 @@ class AuthActivity : AppCompatActivity() {
             showLoading(false)
             btnVerify.isEnabled = true
             // Success or failure, test mode always lets the user in.
-            navigateToChatList()
+            navigateToProfile()
         }
     }
 
@@ -358,8 +363,8 @@ class AuthActivity : AppCompatActivity() {
                 btnVerify.isEnabled = true
 
                 if (task.isSuccessful) {
-                    // Sign in success — navigate to ChatListActivity
-                    navigateToChatList()
+                    // Sign in success — navigate to ProfileActivity
+                    navigateToProfile()
                 } else {
                     val exception = task.exception
                     val errorMessage = when {
@@ -509,6 +514,17 @@ class AuthActivity : AppCompatActivity() {
 
         val intent = Intent(this, ChatListActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
+    private fun navigateToProfile() {
+        if (hasNavigated || isFinishing) return
+        hasNavigated = true
+
+        val intent = Intent(this, ProfileActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        intent.putExtra(ProfileActivity.EXTRA_FROM_LOGIN, true)
         startActivity(intent)
         finish()
     }

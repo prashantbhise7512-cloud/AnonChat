@@ -62,7 +62,7 @@ class SavedChatActivity : AppCompatActivity() {
         chat = chats.find { it.id == chatId } ?: run { finish(); return }
 
         val partnerName = chat.messages.firstOrNull { it.senderName != chat.userName }?.senderName
-            ?: chat.partnerName.ifEmpty { "AnnoUser" }
+            ?: chat.partnerName.ifEmpty { "AnonUser" }
         tvToolbarTitle.text = partnerName
         tvToolbarSubtitle.text = "last seen..."
         btnBack.setOnClickListener { finish() }
@@ -217,7 +217,29 @@ class SavedChatActivity : AppCompatActivity() {
         } else {
             val ts = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
                 .getLong("last_active_$partnerUid", 0L)
-            if (ts > 0) tvToolbarSubtitle.text = formatLastActive(ts)
+            tvToolbarSubtitle.text = formatLastActive(ts.takeIf { it > 0 })
+        }
+    }
+
+    private fun formatLastActive(timestamp: Long?): String {
+        if (timestamp == null || timestamp == 0L) return "last active recently"
+
+        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+        val now = java.util.Calendar.getInstance()
+        val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+
+        val timeString = timeFormat.format(java.util.Date(timestamp))
+        val dateString = dateFormat.format(java.util.Date(timestamp))
+
+        return when {
+            calendar.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+                calendar.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR) ->
+                "last active today at $timeString"
+            calendar.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+                calendar.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR) - 1 ->
+                "last active yesterday at $timeString"
+            else -> "last active $dateString at $timeString"
         }
     }
 
@@ -292,7 +314,7 @@ class SavedChatActivity : AppCompatActivity() {
         val tvAge = dialogView.findViewById<TextView>(R.id.tvPartnerAge)
         val tvCity = dialogView.findViewById<TextView>(R.id.tvPartnerCity)
 
-        tvName.text = chat.partnerName.ifEmpty { "AnnoUser" }
+        tvName.text = chat.partnerName.ifEmpty { "AnonUser" }
         tvGender.text = chat.partnerGender ?: "Not specified"
         tvAge.text = if (chat.partnerAge != null) chat.partnerAge.toString() else "Not specified"
         tvCity.text = chat.partnerCity ?: "Not specified"
@@ -337,24 +359,5 @@ class SavedChatActivity : AppCompatActivity() {
             .setPositiveButton("Close", null)
             .show()
     }
-
-    private fun formatLastActive(timestamp: Long?): String {
-        if (timestamp == null || timestamp == 0L) return "last seen recently"
-        val now = System.currentTimeMillis()
-        val diff = now - timestamp
-        val minutes = (diff / 60000).toInt()
-        if (minutes < 1) return "Active now"
-        if (minutes < 60) return "last seen $minutes min ago"
-        val hours = minutes / 60
-        if (hours < 24) return "last seen ${hours}h ago"
-        val yesterday = java.util.Calendar.getInstance().apply { add(java.util.Calendar.DAY_OF_YEAR, -1) }
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-        return if (cal.get(java.util.Calendar.YEAR) == yesterday.get(java.util.Calendar.YEAR) &&
-            cal.get(java.util.Calendar.DAY_OF_YEAR) == yesterday.get(java.util.Calendar.DAY_OF_YEAR))
-            "last seen yesterday"
-        else {
-            val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
-            "last seen ${sdf.format(java.util.Date(timestamp))}"
-        }
     }
 }
