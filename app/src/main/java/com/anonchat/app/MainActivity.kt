@@ -119,59 +119,72 @@ class MainActivity : AppCompatActivity() {
         currentPartnerName = null
         editMessage.isEnabled = false
 
-        // Add self to queue first, then try to match
-        val queueEntry = mapOf(
-            "userId" to userId,
-            "userName" to userName,
-            "joinedAt" to ServerValue.TIMESTAMP
-        )
-        queueRef.child(userId).setValue(queueEntry).addOnSuccessListener {
-            tryMatchFromQueue()
-        }
+        // Atomically check-and-claim a waiting partner (or add self to the queue) in a single
+        // transaction. This prevents the race where two devices both write themselves into the
+        // queue around the same time and then independently pick each other as a match, ending
+        // up in two separate session nodes instead of the same shared one.
+        var matchedPartnerId: String? = null
+        var matchedPartnerName: String? = null
 
-        // Also listen for being matched by someone else
-        waitForMatch()
-    }
+        queueRef.runTransaction(object : Transaction.Handler {
+            override fun doTransaction(currentData: MutableData): Transaction.Result {
+                // Reset on every attempt — this block can run multiple times if Firebase
+                // has to retry the transaction due to a conflicting concurrent write.
+                matchedPartnerId = null
+                matchedPartnerName = null
 
-    private fun tryMatchFromQueue() {
-        if (currentSessionId != null) return // Already matched
-
-        queueRef.orderByChild("joinedAt").limitToFirst(10)
-            .addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    if (currentSessionId != null) return // Already matched
-
-                    for (child in snapshot.children) {
-                        val partnerId = child.child("userId").getValue(String::class.java) ?: continue
-                        val partnerName = child.child("userName").getValue(String::class.java) ?: "Stranger"
-
-                        // Don't match with self
-                        if (partnerId == userId) continue
-
-                        // Found a partner — remove both from queue and create session
-                        queueRef.child(partnerId).removeValue()
-                        queueRef.child(userId).removeValue()
-
-                        val sessionId = UUID.randomUUID().toString()
-                        val sessionData = mapOf(
-                            "user1" to mapOf("userId" to userId, "userName" to userName),
-                            "user2" to mapOf("userId" to partnerId, "userName" to partnerName),
-                            "createdAt" to ServerValue.TIMESTAMP,
-                            "active" to true
-                        )
-                        sessionsRef.child(sessionId).setValue(sessionData)
-                        connectToSession(sessionId, partnerName)
-                        return
+                val waitingChild = currentData.children.firstOrNull { it.key != userId }
+                if (waitingChild != null) {
+                    val partnerId = waitingChild.child("userId").getValue(String::class.java)
+                    val partnerName = waitingChild.child("userName").getValue(String::class.java) ?: "Stranger"
+                    if (partnerId != null) {
+                        matchedPartnerId = partnerId
+                        matchedPartnerName = partnerName
+                        // Claim them by removing their queue entry, atomically, right now.
+                        currentData.child(waitingChild.key!!).value = null
+                        return Transaction.Result.success(currentData)
                     }
-
-                    // No partner found yet — retry in 2 seconds
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        if (currentSessionId == null) tryMatchFromQueue()
-                    }, 2000)
                 }
 
-                override fun onCancelled(error: DatabaseError) {}
-            })
+                // No one waiting — add self to the queue.
+                currentData.child(userId).child("userId").value = userId
+                currentData.child(userId).child("userName").value = userName
+                currentData.child(userId).child("joinedAt").value = System.currentTimeMillis()
+                return Transaction.Result.success(currentData)
+            }
+
+            override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
+                if (error != null || !committed) {
+                    // TEMP DEBUG: surface why the matching transaction didn't commit.
+                    android.util.Log.e("AnonChatMatch", "Queue transaction failed: committed=$committed error=${error?.message}", error?.toException())
+                    // Something went wrong claiming/joining the queue — fall back to listening
+                    // for a session in case a partner matches with us from their side instead.
+                    waitForMatch()
+                    return
+                }
+
+                val partnerId = matchedPartnerId
+                val partnerName = matchedPartnerName
+                if (partnerId != null && partnerName != null) {
+                    val sessionId = UUID.randomUUID().toString()
+                    val sessionData = mapOf(
+                        "user1" to mapOf("userId" to userId, "userName" to userName),
+                        "user2" to mapOf("userId" to partnerId, "userName" to partnerName),
+                        "createdAt" to ServerValue.TIMESTAMP,
+                        "active" to true
+                    )
+                    sessionsRef.child(sessionId).setValue(sessionData)
+                    connectToSession(sessionId, partnerName)
+                } else {
+                    // We're the one waiting now. If this device disconnects (app killed, network
+                    // lost, crash) before we explicitly leave the queue, have the Firebase server
+                    // remove our entry automatically — so nobody can match with a ghost entry
+                    // that isn't really there anymore.
+                    queueRef.child(userId).onDisconnect().removeValue()
+                    waitForMatch()
+                }
+            }
+        })
     }
 
     private fun waitForMatch() {
@@ -193,6 +206,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connectToSession(sessionId: String, partnerName: String) {
+        // We're matched now — cancel the onDisconnect queue-cleanup registered while waiting,
+        // since our queue entry is already gone (removed by whoever matched with us, or by us
+        // matching them) and we don't want a stale disconnect handler lingering around.
+        queueRef.child(userId).onDisconnect().cancel()
+
         currentSessionId = sessionId
         currentPartnerName = partnerName
         showConnectedState(partnerName)
@@ -404,7 +422,8 @@ class MainActivity : AppCompatActivity() {
                 sessionsRef.child(sessionId).child("active").removeEventListener(it)
             }
         }
-        // Remove from queue if still there
+        // Remove from queue if still there, and cancel any pending onDisconnect cleanup for it
+        queueRef.child(userId).onDisconnect().cancel()
         queueRef.child(userId).removeValue()
         currentSessionId = null
         currentPartnerName = null
