@@ -32,7 +32,7 @@ class AuthActivity : AppCompatActivity() {
     companion object {
         // Set to true to bypass Firebase Auth (any phone + any 6-digit OTP works)
         // Set to false for production with real Firebase Auth
-        const val TEST_MODE = false
+        const val TEST_MODE = true
     }
 
     // Firebase Auth
