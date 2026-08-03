@@ -45,8 +45,9 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.cardview:cardview:1.0.0")
 
-    // Firebase (using BOM for consistent versions)
-implementation(platform("com.google.firebase:firebase-bom:34.17.0"))    implementation("com.google.firebase:firebase-database-ktx")
+    // Firebase (BOM manages versions)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
 
     // Google Play Services (SMS Retriever for OTP auto-read)
@@ -58,6 +59,4 @@ implementation(platform("com.google.firebase:firebase-bom:34.17.0"))    implemen
 
     // CircleImageView for profile picture
     implementation("de.hdodenhof:circleimageview:3.1.0")
-
-    implementation("com.google.firebase:firebase-analytics")
 }
