@@ -132,7 +132,6 @@ class ChatListActivity : AppCompatActivity() {
         profileRef.child("displayName").addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val name = snapshot.getValue(String::class.java)
-                val name = snapshot.getValue(String::class.java)
                     ?: TestSession.cachedDisplayName(this@ChatListActivity, uid)
                 displayName = name ?: "AnonUser"
                 tvListIdentity.text = displayName

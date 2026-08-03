@@ -359,5 +359,4 @@ class SavedChatActivity : AppCompatActivity() {
             .setPositiveButton("Close", null)
             .show()
     }
-    }
 }
