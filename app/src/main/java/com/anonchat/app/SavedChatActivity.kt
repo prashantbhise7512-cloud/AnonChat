@@ -78,6 +78,7 @@ class SavedChatActivity : AppCompatActivity() {
 
         myId = chat.messages.firstOrNull { it.senderName == chat.userName }?.senderId
             ?: TestSession.currentUserId(this)
+            ?: TestSession.uid(this)
             ?: ""
 
         messages.addAll(chat.messages)
@@ -86,9 +87,10 @@ class SavedChatActivity : AppCompatActivity() {
         recyclerMessages.adapter = adapter
         adapter.submitList(messages.toList())
 
-        // Listen for new Firebase messages if a thread exists
-        if (!AuthActivity.TEST_MODE && chat.threadId != null) {
-            listenForNewMessages(chat.threadId!!)
+        // Listen for new Firebase messages if a thread exists (or can be derived from the saved partner id)
+        val resolvedThreadId = resolveThreadId()
+        if (!AuthActivity.TEST_MODE && resolvedThreadId != null) {
+            listenForNewMessages(resolvedThreadId)
         }
 
         // Send button
@@ -117,9 +119,10 @@ class SavedChatActivity : AppCompatActivity() {
             editMessage.text?.clear()
 
             // Write to Firebase thread so partner receives in real time
-            if (!AuthActivity.TEST_MODE && chat.threadId != null) {
+            val resolvedThreadId = resolveThreadId()
+            if (!AuthActivity.TEST_MODE && resolvedThreadId != null) {
                 FirebaseDatabase.getInstance().reference
-                    .child("threads").child(chat.threadId!!).child("messages")
+                    .child("threads").child(resolvedThreadId).child("messages")
                     .push().setValue(
                         mapOf(
                             "id" to msg.id,
@@ -194,6 +197,16 @@ class SavedChatActivity : AppCompatActivity() {
 
         threadRef!!.orderByChild("timestamp").startAt(lastTs.toDouble())
             .addChildEventListener(threadListener!!)
+    }
+
+    private fun resolveThreadId(): String? {
+        val currentUid = TestSession.currentUserId(this) ?: TestSession.uid(this)
+        val partnerUid = chat.partnerAccountId
+        return when {
+            !chat.threadId.isNullOrBlank() -> chat.threadId
+            currentUid != null && !partnerUid.isNullOrBlank() -> listOf(currentUid, partnerUid).sorted().joinToString("_")
+            else -> null
+        }
     }
 
     private fun persistMessages() {
@@ -329,6 +342,26 @@ class SavedChatActivity : AppCompatActivity() {
 
         var fetchedAvatarBase64: String? = null
         val partnerUid = chat.partnerAccountId
+        val cachedName = partnerUid?.let { TestSession.cachedProfileDisplayName(this, it) }
+        val cachedGender = partnerUid?.let { TestSession.cachedProfileGender(this, it) }
+        val cachedAge = partnerUid?.let { TestSession.cachedProfileAge(this, it) }
+        val cachedCity = partnerUid?.let { TestSession.cachedProfileCity(this, it) }
+        val cachedAvatar = partnerUid?.let { TestSession.cachedProfileAvatar(this, it) }
+
+        if (!cachedName.isNullOrBlank() || !cachedGender.isNullOrBlank() || cachedAge != null || !cachedCity.isNullOrBlank() || !cachedAvatar.isNullOrBlank()) {
+            tvName.text = cachedName ?: chat.partnerName.ifEmpty { "AnonUser" }
+            tvGender.text = cachedGender ?: chat.partnerGender ?: "Not specified"
+            tvAge.text = if (cachedAge != null && cachedAge >= 0) cachedAge.toString() else if (chat.partnerAge != null) chat.partnerAge.toString() else "Not specified"
+            tvCity.text = cachedCity ?: chat.partnerCity ?: "Not specified"
+            if (!cachedAvatar.isNullOrEmpty()) {
+                fetchedAvatarBase64 = cachedAvatar
+                try {
+                    val bytes = android.util.Base64.decode(cachedAvatar, android.util.Base64.DEFAULT)
+                    ivAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                } catch (_: Exception) {}
+            }
+        }
+
         if (partnerUid != null && !AuthActivity.TEST_MODE) {
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid)
@@ -337,14 +370,14 @@ class SavedChatActivity : AppCompatActivity() {
                         val profile = snapshot.child("profile")
                         val fetchedName = profile.child("displayName").getValue(String::class.java)
                             ?.takeIf { it.isNotBlank() }
-                            ?: chat.partnerName.ifEmpty { "AnonUser" }
+                            ?: cachedName ?: chat.partnerName.ifEmpty { "AnonUser" }
                         val fetchedGender = profile.child("gender").getValue(String::class.java)
                             ?.takeIf { it.isNotBlank() }
-                            ?: chat.partnerGender ?: "Not specified"
-                        val fetchedAge = profile.child("age").getValue(Long::class.java)?.toInt()
+                            ?: cachedGender ?: chat.partnerGender ?: "Not specified"
+                        val fetchedAge = profile.child("age").getValue(Long::class.java)?.toInt() ?: cachedAge
                         val fetchedCity = profile.child("city").getValue(String::class.java)
                             ?.takeIf { it.isNotBlank() }
-                            ?: chat.partnerCity ?: "Not specified"
+                            ?: cachedCity ?: chat.partnerCity ?: "Not specified"
 
                         tvName.text = fetchedName
                         tvGender.text = fetchedGender

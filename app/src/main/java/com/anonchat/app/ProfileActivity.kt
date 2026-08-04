@@ -268,7 +268,14 @@ class ProfileActivity : AppCompatActivity() {
                     etDisplayName.setText(
                         TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
                     )
-                    spinnerGender.setSelection(0)
+                    val cachedGender = TestSession.cachedProfileGender(this@ProfileActivity, uid)
+                    val genderIndex = if (cachedGender != null) genderOptions.indexOf(cachedGender) else 0
+                    spinnerGender.setSelection(if (genderIndex >= 0) genderIndex else 0)
+                    val cachedAge = TestSession.cachedProfileAge(this@ProfileActivity, uid)
+                    if (cachedAge != null) {
+                        etAge.setText(cachedAge.toString())
+                    }
+                    etCity.setText(TestSession.cachedProfileCity(this@ProfileActivity, uid) ?: "")
                 }
                 setEditMode(fromLogin && !profileExists)
             }
@@ -280,7 +287,14 @@ class ProfileActivity : AppCompatActivity() {
                     etDisplayName.setText(
                         TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
                     )
-                    spinnerGender.setSelection(0)
+                    val cachedGender = TestSession.cachedProfileGender(this@ProfileActivity, uid)
+                    val genderIndex = if (cachedGender != null) genderOptions.indexOf(cachedGender) else 0
+                    spinnerGender.setSelection(if (genderIndex >= 0) genderIndex else 0)
+                    val cachedAge = TestSession.cachedProfileAge(this@ProfileActivity, uid)
+                    if (cachedAge != null) {
+                        etAge.setText(cachedAge.toString())
+                    }
+                    etCity.setText(TestSession.cachedProfileCity(this@ProfileActivity, uid) ?: "")
                     setEditMode(fromLogin && !profileExists)
                 } else {
                     showError("Failed to load profile. Please try again.")
@@ -311,8 +325,9 @@ class ProfileActivity : AppCompatActivity() {
         profileData["age"] = age
         profileData["city"] = city
 
-        // Always cache locally so the name is available without a database round trip.
+        // Always cache locally so the name and other details are available without a database round trip.
         TestSession.cacheDisplayName(this, uid, displayName)
+        TestSession.cacheProfile(this, uid, displayName, gender, age, city, null)
 
         val profileRef = database.reference.child("users").child(uid).child("profile")
         profileRef.setValue(profileData)

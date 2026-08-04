@@ -24,9 +24,11 @@ import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
-    private val userId: String = UUID.randomUUID().toString()
+    private val userId: String by lazy {
+        TestSession.currentUserId(this) ?: TestSession.uid(this) ?: UUID.randomUUID().toString()
+    }
     private val userName: String by lazy {
-        intent.getStringExtra("USER_NAME") ?: "Anonymous"
+        intent.getStringExtra("USER_NAME") ?: TestSession.cachedDisplayName(this, userId) ?: "Anonymous"
     }
 
     private val database by lazy { FirebaseDatabase.getInstance().reference }

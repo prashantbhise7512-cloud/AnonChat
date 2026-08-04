@@ -59,7 +59,7 @@ class PartnerProfileActivity : AppCompatActivity() {
         }
 
         val partnerAccountId = intent.getStringExtra(EXTRA_PARTNER_ACCOUNT_ID)
-        if (!partnerAccountId.isNullOrBlank() && !AuthActivity.TEST_MODE) {
+        if (!partnerAccountId.isNullOrBlank()) {
             loadLatestProfile(partnerAccountId, tvName, tvGender, tvAge, tvCity, ivAvatar)
         }
 
@@ -82,40 +82,90 @@ class PartnerProfileActivity : AppCompatActivity() {
         tvCity: TextView,
         ivAvatar: CircleImageView
     ) {
-        FirebaseDatabase.getInstance().reference
-            .child("users").child(partnerAccountId)
-            .addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val profile = snapshot.child("profile")
-                    val fetchedName = profile.child("displayName").getValue(String::class.java)
-                        ?.takeIf { it.isNotBlank() }
-                        ?: intent.getStringExtra(EXTRA_PARTNER_NAME).orEmpty().ifEmpty { "AnonUser" }
-                    val fetchedGender = profile.child("gender").getValue(String::class.java)
-                        ?.takeIf { it.isNotBlank() }
-                        ?: intent.getStringExtra(EXTRA_PARTNER_GENDER).orEmpty().ifEmpty { "Not specified" }
-                    val fetchedAge = profile.child("age").getValue(Long::class.java)?.toInt()
-                    val fetchedCity = profile.child("city").getValue(String::class.java)
-                        ?.takeIf { it.isNotBlank() }
-                        ?: intent.getStringExtra(EXTRA_PARTNER_CITY).orEmpty().ifEmpty { "Not specified" }
-                    val fetchedAvatar = snapshot.child("avatar").getValue(String::class.java)
+        val fallbackName = intent.getStringExtra(EXTRA_PARTNER_NAME).orEmpty().ifEmpty { "AnonUser" }
+        val fallbackGender = intent.getStringExtra(EXTRA_PARTNER_GENDER).orEmpty().ifEmpty { "Not specified" }
+        val fallbackAge = intent.getIntExtra(EXTRA_PARTNER_AGE, -1)
+        val fallbackCity = intent.getStringExtra(EXTRA_PARTNER_CITY).orEmpty().ifEmpty { "Not specified" }
+        val fallbackAvatar = intent.getStringExtra(EXTRA_PARTNER_AVATAR_BASE64)
 
-                    tvName.text = fetchedName
-                    tvGender.text = fetchedGender
-                    tvAge.text = if (fetchedAge != null && fetchedAge >= 0) fetchedAge.toString() else "Not specified"
-                    tvCity.text = fetchedCity
+        fun applyFallback() {
+            tvName.text = fallbackName
+            tvGender.text = fallbackGender
+            tvAge.text = if (fallbackAge >= 0) fallbackAge.toString() else "Not specified"
+            tvCity.text = fallbackCity
+            currentAvatarBase64 = fallbackAvatar
+            ivAvatar.setImageResource(R.drawable.ic_default_avatar)
+            if (!fallbackAvatar.isNullOrEmpty()) {
+                try {
+                    val bytes = Base64.decode(fallbackAvatar, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ivAvatar.setImageBitmap(bitmap)
+                } catch (_: Exception) {}
+            }
+        }
 
-                    currentAvatarBase64 = fetchedAvatar
-                    ivAvatar.setImageResource(R.drawable.ic_default_avatar)
-                    if (!fetchedAvatar.isNullOrEmpty()) {
-                        try {
-                            val bytes = Base64.decode(fetchedAvatar, Base64.DEFAULT)
-                            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                            ivAvatar.setImageBitmap(bitmap)
-                        } catch (_: Exception) {}
+        val cachedName = TestSession.cachedProfileDisplayName(this, partnerAccountId)
+        val cachedGender = TestSession.cachedProfileGender(this, partnerAccountId)
+        val cachedAge = TestSession.cachedProfileAge(this, partnerAccountId)
+        val cachedCity = TestSession.cachedProfileCity(this, partnerAccountId)
+        val cachedAvatar = TestSession.cachedProfileAvatar(this, partnerAccountId)
+        if (!cachedName.isNullOrBlank() || !cachedGender.isNullOrBlank() || cachedAge != null || !cachedCity.isNullOrBlank() || !cachedAvatar.isNullOrBlank()) {
+            tvName.text = cachedName ?: fallbackName
+            tvGender.text = cachedGender ?: fallbackGender
+            tvAge.text = if (cachedAge != null && cachedAge >= 0) cachedAge.toString() else if (fallbackAge >= 0) fallbackAge.toString() else "Not specified"
+            tvCity.text = cachedCity ?: fallbackCity
+            currentAvatarBase64 = cachedAvatar ?: fallbackAvatar
+            ivAvatar.setImageResource(R.drawable.ic_default_avatar)
+            if (!currentAvatarBase64.isNullOrEmpty()) {
+                try {
+                    val bytes = Base64.decode(currentAvatarBase64, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ivAvatar.setImageBitmap(bitmap)
+                } catch (_: Exception) {}
+            }
+        }
+
+        if (!AuthActivity.TEST_MODE) {
+            FirebaseDatabase.getInstance().reference
+                .child("users").child(partnerAccountId)
+                .addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        val profile = snapshot.child("profile")
+                        val fetchedName = profile.child("displayName").getValue(String::class.java)
+                            ?.takeIf { it.isNotBlank() }
+                            ?: cachedName ?: fallbackName
+                        val fetchedGender = profile.child("gender").getValue(String::class.java)
+                            ?.takeIf { it.isNotBlank() }
+                            ?: cachedGender ?: fallbackGender
+                        val fetchedAge = profile.child("age").getValue(Long::class.java)?.toInt() ?: cachedAge
+                        val fetchedCity = profile.child("city").getValue(String::class.java)
+                            ?.takeIf { it.isNotBlank() }
+                            ?: cachedCity ?: fallbackCity
+                        val fetchedAvatar = snapshot.child("avatar").getValue(String::class.java)
+                            ?: cachedAvatar ?: fallbackAvatar
+
+                        tvName.text = fetchedName
+                        tvGender.text = fetchedGender
+                        tvAge.text = if (fetchedAge != null && fetchedAge >= 0) fetchedAge.toString() else "Not specified"
+                        tvCity.text = fetchedCity
+
+                        currentAvatarBase64 = fetchedAvatar
+                        ivAvatar.setImageResource(R.drawable.ic_default_avatar)
+                        if (!fetchedAvatar.isNullOrEmpty()) {
+                            try {
+                                val bytes = Base64.decode(fetchedAvatar, Base64.DEFAULT)
+                                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                ivAvatar.setImageBitmap(bitmap)
+                            } catch (_: Exception) {}
+                        }
                     }
-                }
 
-                override fun onCancelled(error: DatabaseError) {}
-            })
+                    override fun onCancelled(error: DatabaseError) {
+                        applyFallback()
+                    }
+                })
+        } else {
+            applyFallback()
+        }
     }
 }

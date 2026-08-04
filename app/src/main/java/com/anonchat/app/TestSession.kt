@@ -24,6 +24,11 @@ object TestSession {
     private const val KEY_NORMALIZED_PHONE = "anonchat_normalized_phone"
     private const val KEY_PROFILE_ID = "anonchat_profile_id"
     private const val PROFILE_PREFIX = "anonchat_test_profile_"
+    private const val PROFILE_DISPLAY_NAME_PREFIX = "anonchat_profile_display_name_"
+    private const val PROFILE_GENDER_PREFIX = "anonchat_profile_gender_"
+    private const val PROFILE_AGE_PREFIX = "anonchat_profile_age_"
+    private const val PROFILE_CITY_PREFIX = "anonchat_profile_city_"
+    private const val PROFILE_AVATAR_PREFIX = "anonchat_profile_avatar_"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -103,11 +108,52 @@ object TestSession {
     // --- Local profile cache (used when Realtime Database is not reachable yet) ---
 
     private fun profileKey(accountId: String) = "$PROFILE_PREFIX$accountId"
+    private fun profileDisplayNameKey(accountId: String) = "$PROFILE_DISPLAY_NAME_PREFIX$accountId"
+    private fun profileGenderKey(accountId: String) = "$PROFILE_GENDER_PREFIX$accountId"
+    private fun profileAgeKey(accountId: String) = "$PROFILE_AGE_PREFIX$accountId"
+    private fun profileCityKey(accountId: String) = "$PROFILE_CITY_PREFIX$accountId"
+    private fun profileAvatarKey(accountId: String) = "$PROFILE_AVATAR_PREFIX$accountId"
 
     fun cacheDisplayName(context: Context, userId: String, displayName: String) {
         prefs(context).edit().putString(profileKey(userId), displayName).apply()
+        prefs(context).edit().putString(profileDisplayNameKey(userId), displayName).apply()
     }
 
     fun cachedDisplayName(context: Context, userId: String): String? =
         prefs(context).getString(profileKey(userId), null)
+
+    fun cacheProfile(
+        context: Context,
+        userId: String,
+        displayName: String?,
+        gender: String?,
+        age: Int?,
+        city: String?,
+        avatar: String?
+    ) {
+        val editor = prefs(context).edit()
+        displayName?.let { editor.putString(profileDisplayNameKey(userId), it) }
+        gender?.let { editor.putString(profileGenderKey(userId), it) }
+        age?.let { editor.putInt(profileAgeKey(userId), it) }
+        city?.let { editor.putString(profileCityKey(userId), it) }
+        avatar?.let { editor.putString(profileAvatarKey(userId), it) }
+        editor.apply()
+    }
+
+    fun cachedProfileDisplayName(context: Context, userId: String): String? =
+        prefs(context).getString(profileDisplayNameKey(userId), null)
+
+    fun cachedProfileGender(context: Context, userId: String): String? =
+        prefs(context).getString(profileGenderKey(userId), null)
+
+    fun cachedProfileAge(context: Context, userId: String): Int? {
+        val age = prefs(context).getInt(profileAgeKey(userId), -1)
+        return if (age >= 0) age else null
+    }
+
+    fun cachedProfileCity(context: Context, userId: String): String? =
+        prefs(context).getString(profileCityKey(userId), null)
+
+    fun cachedProfileAvatar(context: Context, userId: String): String? =
+        prefs(context).getString(profileAvatarKey(userId), null)
 }
