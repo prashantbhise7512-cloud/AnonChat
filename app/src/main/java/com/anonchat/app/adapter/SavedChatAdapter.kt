@@ -63,11 +63,15 @@ class SavedChatAdapter(
             val displayTimestamp = lastMsg?.timestamp ?: chat.savedAt
             tvChatDate.text = formatDate(displayTimestamp)
 
-            // Calculate unread messages
+            // Calculate unread messages from the partner only.
             val prefs = itemView.context.getSharedPreferences("anonchat_prefs", android.content.Context.MODE_PRIVATE)
             val lastReadAt = prefs.getLong("read_time_${chat.id}", 0L)
             val currentUserId = com.anonchat.app.TestSession.currentUserId(itemView.context) ?: ""
-            val unreadCount = chat.messages.count { it.timestamp > lastReadAt && it.senderId != currentUserId }
+            val unreadCount = chat.messages.count { message ->
+                val isIncoming = message.senderId != currentUserId
+                val isPartnerMessage = isIncoming && message.senderName != chat.userName
+                message.timestamp > lastReadAt && isPartnerMessage
+            }
 
             if (unreadCount > 0) {
                 tvUnreadBadge.text = unreadCount.toString()

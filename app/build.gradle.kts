@@ -49,6 +49,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // Google Play Services (SMS Retriever for OTP auto-read)
     implementation("com.google.android.gms:play-services-auth:20.7.0")
@@ -59,4 +60,7 @@ dependencies {
 
     // CircleImageView for profile picture
     implementation("de.hdodenhof:circleimageview:3.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+
+    testImplementation("junit:junit:4.13.2")
 }

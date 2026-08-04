@@ -282,7 +282,7 @@ class MainActivity : AppCompatActivity() {
         threadMessagesListener?.let { listener ->
             activeThreadId?.let { currentId ->
                 FirebaseDatabase.getInstance().reference
-                    .child("threads").child(currentId).child("messages")
+                    .child("chatThreads").child(currentId).child("messages")
                     .removeEventListener(listener)
             }
         }
@@ -291,7 +291,7 @@ class MainActivity : AppCompatActivity() {
         if (threadId == null) return
 
         val threadRef = FirebaseDatabase.getInstance().reference
-            .child("threads").child(threadId).child("messages")
+            .child("chatThreads").child(threadId).child("messages")
 
         threadMessagesListener = object : ChildEventListener {
             override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
@@ -385,6 +385,10 @@ class MainActivity : AppCompatActivity() {
         msgRef.setValue(chatMessage)
 
         activeThreadId?.let { threadId ->
+            val sharedRef = FirebaseDatabase.getInstance().reference
+                .child("chatThreads").child(threadId).child("messages")
+            sharedRef.push().setValue(chatMessage)
+
             FirebaseDatabase.getInstance().reference
                 .child("threads").child(threadId).child("messages")
                 .push().setValue(chatMessage)

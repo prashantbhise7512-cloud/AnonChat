@@ -89,7 +89,7 @@ class SavedChatActivity : AppCompatActivity() {
 
         // Listen for new Firebase messages if a thread exists (or can be derived from the saved partner id)
         val resolvedThreadId = resolveThreadId()
-        if (!AuthActivity.TEST_MODE && resolvedThreadId != null) {
+        if (resolvedThreadId != null) {
             listenForNewMessages(resolvedThreadId)
         }
 
@@ -120,19 +120,27 @@ class SavedChatActivity : AppCompatActivity() {
 
             // Write to Firebase thread so partner receives in real time
             val resolvedThreadId = resolveThreadId()
-            if (!AuthActivity.TEST_MODE && resolvedThreadId != null) {
+            if (resolvedThreadId != null) {
+                val messagePayload = mapOf(
+                    "id" to msg.id,
+                    "senderId" to msg.senderId,
+                    "senderName" to msg.senderName,
+                    "message" to msg.message,
+                    "timestamp" to msg.timestamp,
+                    "status" to "sent"
+                )
+
                 FirebaseDatabase.getInstance().reference
-                    .child("threads").child(resolvedThreadId).child("messages")
-                    .push().setValue(
-                        mapOf(
-                            "id" to msg.id,
-                            "senderId" to msg.senderId,
-                            "senderName" to msg.senderName,
-                            "message" to msg.message,
-                            "timestamp" to msg.timestamp,
-                            "status" to "sent"
-                        )
-                    )
+                    .child("chatThreads").child(resolvedThreadId).child("messages")
+                    .push().setValue(messagePayload)
+
+                val threadRef = FirebaseDatabase.getInstance().reference
+                    .child("threads").child(resolvedThreadId)
+                threadRef.child("participants").setValue(
+                    listOfNotNull(myId, chat.partnerAccountId).distinct()
+                )
+                threadRef.child("createdAt").setValue(com.google.firebase.database.ServerValue.TIMESTAMP)
+                threadRef.child("messages").push().setValue(messagePayload)
             }
         }
 
@@ -144,7 +152,7 @@ class SavedChatActivity : AppCompatActivity() {
         val lastTs = messages.lastOrNull()?.timestamp ?: 0L
 
         threadRef = FirebaseDatabase.getInstance().reference
-            .child("threads").child(threadId).child("messages")
+            .child("chatThreads").child(threadId).child("messages")
 
         threadListener = object : ChildEventListener {
             override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
