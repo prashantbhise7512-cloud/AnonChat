@@ -117,7 +117,8 @@ class ProfileActivity : AppCompatActivity() {
 
         // Load saved avatar from SharedPreferences
         val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-        val savedAvatar = prefs.getString("avatar_$uid", null)
+        val currentUid = TestSession.currentUserId(this) ?: "unknown"
+        val savedAvatar = prefs.getString("avatar_$currentUid", null)
         if (savedAvatar != null) {
             val bytes = Base64.decode(savedAvatar, Base64.DEFAULT)
             val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
