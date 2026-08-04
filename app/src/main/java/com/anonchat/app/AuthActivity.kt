@@ -190,9 +190,19 @@ class AuthActivity : AppCompatActivity() {
         val phoneNumber = getFullPhoneNumber()
         TestSession.signIn(this, phoneNumber)
 
-        // In test mode we use a deterministic phone-based identity, not Firebase auth.
-        // This prevents a new anonymous auth user from being created every login.
-        navigateToProfile()
+        // In test mode we use a deterministic phone-based identity, but still sign in
+        // anonymously so Realtime Database rules requiring auth can succeed.
+        auth.signInAnonymously()
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    navigateToProfile()
+                } else {
+                    // Continue to profile even if anonymous auth fails, but database access
+                    // may be blocked until Firebase auth works.
+                    navigateToProfile()
+                    android.util.Log.w("AnonChatAuth", "Anonymous sign-in failed", task.exception)
+                }
+            }
     }
 
     // --- Phone Number Validation ---
