@@ -21,15 +21,22 @@ object TestSession {
     private const val KEY_ACTIVE = "anonchat_test_active"
     private const val KEY_UID = "anonchat_test_uid"
     private const val KEY_PHONE = "anonchat_test_phone"
+    private const val KEY_NORMALIZED_PHONE = "anonchat_normalized_phone"
+    private const val KEY_PROFILE_ID = "anonchat_profile_id"
     private const val PROFILE_PREFIX = "anonchat_test_profile_"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** Shared derivation: "test_" plus every digit of the full E.164 number. */
+    /** Shared derivation: "test_" plus the normalized 10-digit number. */
     fun deriveAccountId(phoneNumber: String?): String {
-        val digits = phoneNumber.orEmpty().filter { it.isDigit() }
+        val digits = normalizePhoneNumber(phoneNumber)
         return if (digits.isEmpty()) "test_anonymous" else "test_$digits"
+    }
+
+    fun normalizePhoneNumber(phoneNumber: String?): String {
+        val digits = phoneNumber.orEmpty().filter { it.isDigit() }
+        return if (digits.length > 10) digits.takeLast(10) else digits
     }
 
     /** True once the user has "verified" in test mode. */
@@ -38,11 +45,15 @@ object TestSession {
 
     /** Marks the session active and returns the phone-derived account id. */
     fun signIn(context: Context, phoneNumber: String): String {
-        val uid = deriveAccountId(phoneNumber)
+        val normalizedPhone = normalizePhoneNumber(phoneNumber)
+        val uid = deriveAccountId(normalizedPhone)
+        val existingProfileId = prefs(context).getString(KEY_PROFILE_ID, null)
         prefs(context).edit()
             .putBoolean(KEY_ACTIVE, true)
             .putString(KEY_UID, uid)
             .putString(KEY_PHONE, phoneNumber)
+            .putString(KEY_NORMALIZED_PHONE, normalizedPhone)
+            .putString(KEY_PROFILE_ID, existingProfileId ?: generateProfileId(context))
             .apply()
         return uid
     }
@@ -57,6 +68,28 @@ object TestSession {
 
     fun uid(context: Context): String =
         prefs(context).getString(KEY_UID, null) ?: "test_anonymous"
+
+    fun profileId(context: Context): String {
+        val existing = prefs(context).getString(KEY_PROFILE_ID, null)
+        if (!existing.isNullOrBlank()) return existing
+        val generated = generateProfileId(context)
+        prefs(context).edit().putString(KEY_PROFILE_ID, generated).apply()
+        return generated
+    }
+
+    private fun generateProfileId(context: Context): String {
+        val existing = prefs(context).getString(KEY_PROFILE_ID, null)
+        if (!existing.isNullOrBlank()) return existing
+
+        val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+        val random = java.util.Random()
+        var candidate: String
+        do {
+            candidate = (1..6).joinToString("") { chars[random.nextInt(chars.length)].toString() }
+        } while (candidate == "anonymous" || candidate == "test123")
+
+        return candidate
+    }
 
     /**
      * The id to use for per-user data everywhere in the app: the real Firebase uid when one

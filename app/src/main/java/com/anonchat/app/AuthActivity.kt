@@ -187,7 +187,8 @@ class AuthActivity : AppCompatActivity() {
      * way, so a missing/disabled anonymous provider never blocks development.
      */
     private fun completeTestSignIn() {
-        TestSession.signIn(this, getFullPhoneNumber())
+        val phoneNumber = getFullPhoneNumber()
+        TestSession.signIn(this, phoneNumber)
 
         if (auth.currentUser != null) {
             navigateToProfile()

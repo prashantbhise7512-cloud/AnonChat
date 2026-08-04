@@ -37,6 +37,8 @@ class MainActivity : AppCompatActivity() {
     private var currentPartnerName: String? = null
     private var sessionMessagesListener: ChildEventListener? = null
     private var partnerPresenceListener: ValueEventListener? = null
+    private var threadMessagesListener: ChildEventListener? = null
+    private var activeThreadId: String? = null
 
     private val messages = mutableListOf<ChatMessage>()
     private lateinit var adapter: MessageAdapter
@@ -167,9 +169,11 @@ class MainActivity : AppCompatActivity() {
                 val partnerName = matchedPartnerName
                 if (partnerId != null && partnerName != null) {
                     val sessionId = UUID.randomUUID().toString()
+                    val threadId = listOf(userId, partnerId).sorted().joinToString("_")
                     val sessionData = mapOf(
                         "user1" to mapOf("userId" to userId, "userName" to userName),
                         "user2" to mapOf("userId" to partnerId, "userName" to partnerName),
+                        "threadId" to threadId,
                         "createdAt" to ServerValue.TIMESTAMP,
                         "active" to true
                     )
@@ -219,6 +223,7 @@ class MainActivity : AppCompatActivity() {
         listenForSessionMessages(sessionId)
         listenForPartnerDisconnect(sessionId)
         listenForPartnerSave(sessionId)
+        listenForThreadMessagesFromSession(sessionId)
     }
 
     // === MESSAGING ===
@@ -258,6 +263,51 @@ class MainActivity : AppCompatActivity() {
         }
         sessionsRef.child(sessionId).child("active")
             .addValueEventListener(partnerPresenceListener!!)
+    }
+
+    private fun listenForThreadMessagesFromSession(sessionId: String) {
+        sessionsRef.child(sessionId).child("threadId")
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val threadId = snapshot.getValue(String::class.java)
+                    listenForThreadMessages(threadId)
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+    }
+
+    private fun listenForThreadMessages(threadId: String?) {
+        threadMessagesListener?.let { listener ->
+            activeThreadId?.let { currentId ->
+                FirebaseDatabase.getInstance().reference
+                    .child("threads").child(currentId).child("messages")
+                    .removeEventListener(listener)
+            }
+        }
+
+        activeThreadId = threadId
+        if (threadId == null) return
+
+        val threadRef = FirebaseDatabase.getInstance().reference
+            .child("threads").child(threadId).child("messages")
+
+        threadMessagesListener = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
+                val msg = snapshotToMessage(snapshot) ?: return
+                if (messages.any { it.id == msg.id }) return
+                messages.add(msg)
+                messages.sortBy { it.timestamp }
+                adapter.submitList(messages.toList())
+                recyclerMessages.scrollToPosition(messages.size - 1)
+                updateEmptyState()
+            }
+            override fun onChildChanged(s: DataSnapshot, p: String?) {}
+            override fun onChildRemoved(s: DataSnapshot) {}
+            override fun onChildMoved(s: DataSnapshot, p: String?) {}
+            override fun onCancelled(e: DatabaseError) {}
+        }
+
+        threadRef.addChildEventListener(threadMessagesListener!!)
     }
 
     private fun listenForPartnerSave(sessionId: String) {
@@ -331,6 +381,13 @@ class MainActivity : AppCompatActivity() {
             "timestamp" to ServerValue.TIMESTAMP
         )
         msgRef.setValue(chatMessage)
+
+        activeThreadId?.let { threadId ->
+            FirebaseDatabase.getInstance().reference
+                .child("threads").child(threadId).child("messages")
+                .push().setValue(chatMessage)
+        }
+
         editMessage.text?.clear()
     }
 

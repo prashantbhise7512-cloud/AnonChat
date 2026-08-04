@@ -76,7 +76,9 @@ class SavedChatActivity : AppCompatActivity() {
         findViewById<de.hdodenhof.circleimageview.CircleImageView>(R.id.ivToolbarAvatar)
             .setOnClickListener { showPartnerProfileDialog(chat) }
 
-        myId = chat.messages.firstOrNull { it.senderName == chat.userName }?.senderId ?: ""
+        myId = chat.messages.firstOrNull { it.senderName == chat.userName }?.senderId
+            ?: TestSession.currentUserId(this)
+            ?: ""
 
         messages.addAll(chat.messages)
         adapter = MessageAdapter(myId)
@@ -329,15 +331,34 @@ class SavedChatActivity : AppCompatActivity() {
         val partnerUid = chat.partnerAccountId
         if (partnerUid != null && !AuthActivity.TEST_MODE) {
             FirebaseDatabase.getInstance().reference
-                .child("users").child(partnerUid).child("avatar")
+                .child("users").child(partnerUid)
                 .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(snapshot: DataSnapshot) {
-                        val data = snapshot.getValue(String::class.java) ?: return
-                        fetchedAvatarBase64 = data
-                        try {
-                            val bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT)
-                            ivAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-                        } catch (_: Exception) {}
+                        val profile = snapshot.child("profile")
+                        val fetchedName = profile.child("displayName").getValue(String::class.java)
+                            ?.takeIf { it.isNotBlank() }
+                            ?: chat.partnerName.ifEmpty { "AnonUser" }
+                        val fetchedGender = profile.child("gender").getValue(String::class.java)
+                            ?.takeIf { it.isNotBlank() }
+                            ?: chat.partnerGender ?: "Not specified"
+                        val fetchedAge = profile.child("age").getValue(Long::class.java)?.toInt()
+                        val fetchedCity = profile.child("city").getValue(String::class.java)
+                            ?.takeIf { it.isNotBlank() }
+                            ?: chat.partnerCity ?: "Not specified"
+
+                        tvName.text = fetchedName
+                        tvGender.text = fetchedGender
+                        tvAge.text = if (fetchedAge != null && fetchedAge >= 0) fetchedAge.toString() else "Not specified"
+                        tvCity.text = fetchedCity
+
+                        val data = snapshot.child("avatar").getValue(String::class.java)
+                        if (!data.isNullOrEmpty()) {
+                            fetchedAvatarBase64 = data
+                            try {
+                                val bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+                                ivAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                            } catch (_: Exception) {}
+                        }
                     }
                     override fun onCancelled(error: DatabaseError) {}
                 })

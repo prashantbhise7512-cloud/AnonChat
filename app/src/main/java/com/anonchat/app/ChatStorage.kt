@@ -95,6 +95,7 @@ object ChatStorage {
                     partnerGender = obj.optString("partnerGender", "").ifEmpty { null },
                     partnerAge = obj.optInt("partnerAge", -1).takeIf { it >= 0 },
                     partnerCity = obj.optString("partnerCity", "").ifEmpty { null },
+                    partnerAvatar = obj.optString("partnerAvatar", "").ifEmpty { null },
                     messages = messages
                 ))
             }

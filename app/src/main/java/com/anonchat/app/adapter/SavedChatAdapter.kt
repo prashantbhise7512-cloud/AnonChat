@@ -52,8 +52,8 @@ class SavedChatAdapter(
         private val tvUnreadBadge: TextView = itemView.findViewById(R.id.tvUnreadBadge)
 
         fun bind(chat: SavedChat) {
-            val partnerName = chat.messages.firstOrNull { it.senderName != chat.userName }?.senderName ?: "AnonUser"
-            tvChatName.text = partnerName
+            val fallbackName = chat.messages.firstOrNull { it.senderName != chat.userName }?.senderName ?: chat.partnerName.ifEmpty { "AnonUser" }
+            tvChatName.text = fallbackName
             val lastMsg = chat.messages.lastOrNull()
             tvChatPreview.text = if (lastMsg != null) {
                 "${lastMsg.senderName}: ${lastMsg.message}"
@@ -93,19 +93,27 @@ class SavedChatAdapter(
                 } catch (_: Exception) {}
             }
 
-            // Fetch partner's avatar from Firebase on demand if not already available locally
+            // Fetch partner's latest profile data from Firebase on demand
             val partnerUid = chat.partnerAccountId
             if (partnerUid != null && !AuthActivity.TEST_MODE) {
                 FirebaseDatabase.getInstance().reference
-                    .child("users").child(partnerUid).child("avatar")
+                    .child("users").child(partnerUid)
                     .addListenerForSingleValueEvent(object : ValueEventListener {
                         override fun onDataChange(snapshot: DataSnapshot) {
-                            val avatarData = snapshot.getValue(String::class.java) ?: return
-                            try {
-                                val bytes = Base64.decode(avatarData, Base64.DEFAULT)
-                                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                ivAvatar.setImageBitmap(bitmap)
-                            } catch (_: Exception) {}
+                            val profile = snapshot.child("profile")
+                            val latestName = profile.child("displayName").getValue(String::class.java)
+                                ?.takeIf { it.isNotBlank() }
+                                ?: fallbackName
+                            tvChatName.text = latestName
+
+                            val avatarData = snapshot.child("avatar").getValue(String::class.java)
+                            if (!avatarData.isNullOrEmpty()) {
+                                try {
+                                    val bytes = Base64.decode(avatarData, Base64.DEFAULT)
+                                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    ivAvatar.setImageBitmap(bitmap)
+                                } catch (_: Exception) {}
+                            }
                         }
                         override fun onCancelled(error: DatabaseError) {}
                     })

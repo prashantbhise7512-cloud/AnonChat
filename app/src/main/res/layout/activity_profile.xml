@@ -41,8 +41,8 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="20dp"
-                android:padding="16dp"
+                android:layout_marginBottom="24dp"
+                android:padding="20dp"
                 app:cardCornerRadius="20dp"
                 app:cardElevation="2dp"
                 app:cardBackgroundColor="@color/surface">
@@ -50,87 +50,43 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:gravity="center"
+                    android:orientation="vertical">
 
                     <FrameLayout
-                        android:layout_width="90dp"
-                        android:layout_height="90dp">
+                        android:layout_width="110dp"
+                        android:layout_height="110dp">
 
                         <de.hdodenhof.circleimageview.CircleImageView
                             android:id="@+id/ivProfilePic"
-                            android:layout_width="90dp"
-                            android:layout_height="90dp"
+                            android:layout_width="110dp"
+                            android:layout_height="110dp"
                             android:src="@drawable/ic_default_avatar"
                             app:civ_border_width="3dp"
                             app:civ_border_color="@color/primary" />
 
                         <ImageView
                             android:id="@+id/ivCameraIcon"
-                            android:layout_width="28dp"
-                            android:layout_height="28dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:layout_gravity="bottom|end"
                             android:background="@drawable/bg_send_button"
-                            android:padding="5dp"
+                            android:padding="6dp"
                             android:src="@drawable/ic_camera"
                             android:contentDescription="Change photo" />
                     </FrameLayout>
 
-                    <LinearLayout
-                        android:layout_width="0dp"
+                    <TextView
+                        android:id="@+id/tvUniqueId"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="16dp"
-                        android:orientation="vertical"
-                        android:layout_weight="1">
-
-                        <TextView
-                            android:id="@+id/tvProfileHeader"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="@string/profile_header_title"
-                            android:textColor="@color/on_surface"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvProfileSubtitle"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="@string/profile_header_subtitle"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="13sp" />
-
-                        <TextView
-                            android:id="@+id/tvUniqueId"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            android:fontFamily="monospace"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="11sp"
-                            android:textIsSelectable="true" />
-                    </LinearLayout>
+                        android:layout_marginTop="12dp"
+                        android:fontFamily="monospace"
+                        android:gravity="center"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:textIsSelectable="true" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Privacy note -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                android:padding="16dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="1dp"
-                app:cardBackgroundColor="@color/surface">
-
-                <TextView
-                    android:id="@+id/tvPrivacyNote"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/profile_private_note"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Display Name -->
@@ -141,7 +97,6 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 android:hint="@string/profile_name_hint"
-                app:helperText="@string/profile_name_helper"
                 app:counterEnabled="true"
                 app:counterMaxLength="50">
 
@@ -173,14 +128,6 @@
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:text="@string/profile_gender_helper"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-
             <!-- Age -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilAge"
@@ -188,8 +135,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:hint="@string/profile_age_hint"
-                app:helperText="@string/profile_age_helper">
+                android:hint="@string/profile_age_hint">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etAge"
@@ -207,7 +153,6 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
                 android:hint="@string/profile_city_hint"
-                app:helperText="@string/profile_city_helper"
                 app:counterEnabled="true"
                 app:counterMaxLength="100">
 

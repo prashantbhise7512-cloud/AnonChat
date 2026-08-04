@@ -41,6 +41,7 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var etAge: TextInputEditText
     private lateinit var tilCity: TextInputLayout
     private lateinit var etCity: TextInputEditText
+    private var profileExists = false
     private lateinit var btnEditProfile: MaterialButton
     private lateinit var btnSaveProfile: MaterialButton
     private lateinit var btnContinueWithoutProfile: MaterialButton
@@ -109,10 +110,10 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun setupProfilePicture() {
-        // Show unique ID (not editable)
+        // Show generated profile ID (not editable)
         val tvUniqueId = findViewById<TextView>(R.id.tvUniqueId)
-        val uid = TestSession.currentUserId(this) ?: "unknown"
-        tvUniqueId.text = "ID: $uid"
+        val profileId = TestSession.profileId(this)
+        tvUniqueId.text = profileId
 
         // Load saved avatar from SharedPreferences
         val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
@@ -209,20 +210,18 @@ class ProfileActivity : AppCompatActivity() {
     private fun validateFields(): Boolean {
         val displayName = etDisplayName.text?.toString()?.trim() ?: ""
         val ageText = etAge.text?.toString()?.trim() ?: ""
-        val city = etCity.text?.toString()?.trim() ?: ""
 
-        // Display name: non-empty, max 50 chars
         if (displayName.isEmpty()) {
-            tilDisplayName.error = "Display name cannot be empty"
-            return false
+            etDisplayName.setText("AnonUser")
         }
-        if (displayName.length > 50) {
+
+        val finalDisplayName = etDisplayName.text?.toString()?.trim() ?: "AnonUser"
+        if (finalDisplayName.length > 50) {
             tilDisplayName.error = "Display name must be 50 characters or less"
             return false
         }
         tilDisplayName.error = null
 
-        // Age: empty or 13-120
         if (ageText.isNotEmpty()) {
             val age = ageText.toIntOrNull()
             if (age == null || age < 13 || age > 120) {
@@ -231,13 +230,6 @@ class ProfileActivity : AppCompatActivity() {
             }
         }
         tilAge.error = null
-
-        // City: max 100 chars
-        if (city.length > 100) {
-            tilCity.error = "City must be 100 characters or less"
-            return false
-        }
-        tilCity.error = null
 
         return true
     }
@@ -255,15 +247,13 @@ class ProfileActivity : AppCompatActivity() {
                 showLoading(false)
 
                 if (snapshot.exists()) {
-                    // Populate fields with saved values
+                    profileExists = true
                     val displayName = snapshot.child("displayName").getValue(String::class.java)
                     val gender = snapshot.child("gender").getValue(String::class.java)
                     val age = snapshot.child("age").getValue(Long::class.java)
                     val city = snapshot.child("city").getValue(String::class.java)
 
                     etDisplayName.setText(displayName ?: "AnonUser")
-
-                    // Set gender spinner selection
                     val genderIndex = if (gender != null) genderOptions.indexOf(gender) else 0
                     spinnerGender.setSelection(if (genderIndex >= 0) genderIndex else 0)
 
@@ -273,24 +263,24 @@ class ProfileActivity : AppCompatActivity() {
 
                     etCity.setText(city ?: "")
                 } else {
-                    // No profile exists — show cached name or defaults
+                    profileExists = false
                     etDisplayName.setText(
                         TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
                     )
                     spinnerGender.setSelection(0)
                 }
-                setEditMode(fromLogin)
+                setEditMode(fromLogin && !profileExists)
             }
 
             override fun onCancelled(error: DatabaseError) {
                 showLoading(false)
                 if (AuthActivity.TEST_MODE) {
-                    // Database not reachable yet — fall back to the local cache.
+                    profileExists = false
                     etDisplayName.setText(
                         TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
                     )
                     spinnerGender.setSelection(0)
-                    setEditMode(fromLogin)
+                    setEditMode(fromLogin && !profileExists)
                 } else {
                     showError("Failed to load profile. Please try again.")
                 }
@@ -361,7 +351,8 @@ class ProfileActivity : AppCompatActivity() {
         etDisplayName.isEnabled = enabled
         spinnerGender.isEnabled = enabled
         etAge.isEnabled = enabled
-        etCity.isEnabled = enabled
+        tilCity.visibility = if (enabled && !fromLogin) View.VISIBLE else View.GONE
+        etCity.isEnabled = enabled && !fromLogin
         ivCameraIcon.isEnabled = enabled
         ivProfilePic.isEnabled = enabled
         val alpha = if (enabled) 1f else 0.6f
