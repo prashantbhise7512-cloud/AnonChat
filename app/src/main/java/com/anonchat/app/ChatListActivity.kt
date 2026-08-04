@@ -32,6 +32,7 @@ class ChatListActivity : AppCompatActivity() {
 
     private val database by lazy { FirebaseDatabase.getInstance() }
     private var displayName: String = "Anonymous"
+    private val threadListeners = mutableMapOf<String, com.google.firebase.database.ChildEventListener>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,6 +100,12 @@ class ChatListActivity : AppCompatActivity() {
         loadSavedChats()
         loadDisplayName()
         updateLastActive()
+        startSavedChatListeners()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopSavedChatListeners()
     }
 
     private fun showChatsTab() {
@@ -157,6 +164,72 @@ class ChatListActivity : AppCompatActivity() {
         } else {
             emptyState.visibility = View.GONE
             recyclerSavedChats.visibility = View.VISIBLE
+        }
+    }
+
+    private fun startSavedChatListeners() {
+        stopSavedChatListeners()
+        val chats = ChatStorage.getSavedChats(this)
+        val currentUserId = TestSession.currentUserId(this) ?: return
+
+        chats.forEach { chat ->
+            val threadId = chat.threadId ?: deriveThreadId(chat)
+            if (threadId.isNullOrBlank()) return@forEach
+            if (threadListeners.containsKey(chat.id)) return@forEach
+
+            val listener = object : com.google.firebase.database.ChildEventListener {
+                override fun onChildAdded(snapshot: com.google.firebase.database.DataSnapshot, previousChildName: String?) {
+                    val message = parseThreadMessage(snapshot) ?: return
+                    if (message.senderId == currentUserId) return
+
+                    val existingChat = ChatStorage.getSavedChats(this@ChatListActivity)
+                        .find { it.id == chat.id } ?: return
+                    if (existingChat.messages.any { it.id == message.id }) return
+
+                    ChatStorage.appendMessageToChat(this@ChatListActivity, chat.id, message)
+                    loadSavedChats()
+                }
+
+                override fun onChildChanged(snapshot: com.google.firebase.database.DataSnapshot, previousChildName: String?) {}
+                override fun onChildRemoved(snapshot: com.google.firebase.database.DataSnapshot) {}
+                override fun onChildMoved(snapshot: com.google.firebase.database.DataSnapshot, previousChildName: String?) {}
+                override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+            }
+
+            val threadRef = database.reference.child("chatThreads").child(threadId).child("messages")
+            threadRef.orderByChild("timestamp").addChildEventListener(listener)
+            threadListeners[chat.id] = listener
+        }
+    }
+
+    private fun stopSavedChatListeners() {
+        val chats = ChatStorage.getSavedChats(this)
+        chats.forEach { chat ->
+            val listener = threadListeners[chat.id] ?: return@forEach
+            database.reference.child("chatThreads").child(chat.threadId ?: deriveThreadId(chat) ?: return@forEach)
+                .child("messages").removeEventListener(listener)
+        }
+        threadListeners.clear()
+    }
+
+    private fun deriveThreadId(chat: com.anonchat.app.model.SavedChat): String? {
+        val currentUid = TestSession.currentUserId(this) ?: return null
+        val partnerUid = chat.partnerAccountId
+        return if (!partnerUid.isNullOrBlank()) listOf(currentUid, partnerUid).sorted().joinToString("_") else null
+    }
+
+    private fun parseThreadMessage(snapshot: com.google.firebase.database.DataSnapshot): com.anonchat.app.model.ChatMessage? {
+        return try {
+            com.anonchat.app.model.ChatMessage(
+                id = snapshot.child("id").getValue(String::class.java) ?: return null,
+                senderId = snapshot.child("senderId").getValue(String::class.java) ?: return null,
+                senderName = snapshot.child("senderName").getValue(String::class.java) ?: return null,
+                message = snapshot.child("message").getValue(String::class.java) ?: return null,
+                timestamp = snapshot.child("timestamp").getValue(Long::class.java) ?: 0L,
+                status = snapshot.child("status").getValue(String::class.java) ?: "sent"
+            )
+        } catch (e: Exception) {
+            null
         }
     }
 }

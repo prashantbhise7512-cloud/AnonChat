@@ -66,6 +66,27 @@ object ChatStorage {
         prefs.edit().putString(KEY_SAVED_CHATS, jsonArray.toString()).apply()
     }
 
+    fun updateChatMessages(context: Context, chatId: String, newMessages: List<ChatMessage>) {
+        val chats = getSavedChats(context).toMutableList()
+        val index = chats.indexOfFirst { it.id == chatId }
+        if (index >= 0) {
+            chats[index] = chats[index].copy(messages = newMessages)
+            persistChats(context, chats)
+        }
+    }
+
+    fun appendMessageToChat(context: Context, chatId: String, message: ChatMessage) {
+        val chats = getSavedChats(context).toMutableList()
+        val index = chats.indexOfFirst { it.id == chatId }
+        if (index >= 0) {
+            val chat = chats[index]
+            if (chat.messages.any { it.id == message.id }) return
+            val updated = chat.copy(messages = chat.messages + message)
+            chats[index] = updated
+            persistChats(context, chats)
+        }
+    }
+
     private fun parseSavedChats(json: String): List<SavedChat> {
         val result = mutableListOf<SavedChat>()
         try {
