@@ -103,8 +103,8 @@ class ChatListActivity : AppCompatActivity() {
         startSavedChatListeners()
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onDestroy() {
+        super.onDestroy()
         stopSavedChatListeners()
     }
 
@@ -188,6 +188,9 @@ class ChatListActivity : AppCompatActivity() {
 
                     ChatStorage.appendMessageToChat(this@ChatListActivity, chat.id, message)
                     loadSavedChats()
+                    if (message.senderId != currentUserId) {
+                        android.widget.Toast.makeText(this@ChatListActivity, "New message received", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
 
                 override fun onChildChanged(snapshot: com.google.firebase.database.DataSnapshot, previousChildName: String?) {}

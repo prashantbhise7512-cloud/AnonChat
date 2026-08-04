@@ -456,8 +456,10 @@ class MainActivity : AppCompatActivity() {
         // Save locally immediately so the user can continue later.
         triggerSave()
 
-        // Notify partner that this user saved the chat.
+        // Mark the chat as saved, but keep the temporary session alive so both users can
+        // continue chatting in the same thread until one of them leaves.
         sessionsRef.child(currentSessionId!!).child("savedBy").child(userId).setValue(true)
+        sessionsRef.child(currentSessionId!!).child("active").setValue(true)
         Toast.makeText(this, "Chat saved. You can continue later.", Toast.LENGTH_SHORT).show()
         btnSaveChat.visibility = View.GONE
     }
@@ -487,9 +489,11 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, R.string.chat_saved, Toast.LENGTH_SHORT).show()
         btnSaveChat.visibility = View.GONE
 
-        // Notify partner that this user saved the chat
+        // Notify partner that this user saved the chat, but keep the temporary session alive
+        // until one of the users leaves the chat.
         currentSessionId?.let { sessionId ->
             sessionsRef.child(sessionId).child("savedBy").child(userId).setValue(true)
+            sessionsRef.child(sessionId).child("active").setValue(true)
         }
     }
 
@@ -513,16 +517,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun disconnectFromCurrent() {
-        // Mark session as inactive
-        currentSessionId?.let { sessionId ->
+        val sessionId = currentSessionId
+        if (sessionId != null) {
             sessionsRef.child(sessionId).child("active").setValue(false)
-            sessionMessagesListener?.let {
-                sessionsRef.child(sessionId).child("messages").removeEventListener(it)
-            }
-            partnerPresenceListener?.let {
-                sessionsRef.child(sessionId).child("active").removeEventListener(it)
-            }
+            sessionsRef.child(sessionId).removeValue()
         }
+
+        sessionMessagesListener?.let {
+            sessionId?.let { sessionsRef.child(it).child("messages").removeEventListener(it) }
+        }
+        partnerPresenceListener?.let {
+            sessionId?.let { sessionsRef.child(it).child("active").removeEventListener(it) }
+        }
+
         // Remove from queue if still there, and cancel any pending onDisconnect cleanup for it
         queueRef.child(userId).onDisconnect().cancel()
         queueRef.child(userId).removeValue()

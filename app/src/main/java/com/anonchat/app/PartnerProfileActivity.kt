@@ -131,17 +131,24 @@ class PartnerProfileActivity : AppCompatActivity() {
                 .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(snapshot: DataSnapshot) {
                         val profile = snapshot.child("profile")
-                        val fetchedName = profile.child("displayName").getValue(String::class.java)
-                            ?.takeIf { it.isNotBlank() }
+                        val profileName = profile.child("displayName").getValue(String::class.java)
+                        val profileGender = profile.child("gender").getValue(String::class.java)
+                        val profileAge = profile.child("age").getValue(Long::class.java)?.toInt()
+                        val profileCity = profile.child("city").getValue(String::class.java)
+                        val profileAvatar = snapshot.child("avatar").getValue(String::class.java)
+
+                        val fetchedName = profileName?.takeIf { it.isNotBlank() }
+                            ?: snapshot.child("displayName").getValue(String::class.java)
                             ?: cachedName ?: fallbackName
-                        val fetchedGender = profile.child("gender").getValue(String::class.java)
-                            ?.takeIf { it.isNotBlank() }
+                        val fetchedGender = profileGender?.takeIf { it.isNotBlank() }
+                            ?: snapshot.child("gender").getValue(String::class.java)
                             ?: cachedGender ?: fallbackGender
-                        val fetchedAge = profile.child("age").getValue(Long::class.java)?.toInt() ?: cachedAge
-                        val fetchedCity = profile.child("city").getValue(String::class.java)
-                            ?.takeIf { it.isNotBlank() }
+                        val fetchedAge = profileAge ?: snapshot.child("age").getValue(Long::class.java)?.toInt() ?: cachedAge
+                        val fetchedCity = profileCity?.takeIf { it.isNotBlank() }
+                            ?: snapshot.child("city").getValue(String::class.java)
                             ?: cachedCity ?: fallbackCity
-                        val fetchedAvatar = snapshot.child("avatar").getValue(String::class.java)
+                        val fetchedAvatar = profileAvatar
+                            ?: snapshot.child("avatar").getValue(String::class.java)
                             ?: cachedAvatar ?: fallbackAvatar
 
                         tvName.text = fetchedName

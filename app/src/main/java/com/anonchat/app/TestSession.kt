@@ -60,6 +60,12 @@ object TestSession {
             .putString(KEY_NORMALIZED_PHONE, normalizedPhone)
             .putString(KEY_PROFILE_ID, existingProfileId ?: generateProfileId(context))
             .apply()
+
+        // Keep the same persistent identity for the same normalized phone number across app restarts.
+        val db = com.google.firebase.database.FirebaseDatabase.getInstance().reference
+        db.child("users").child(uid).child("phoneNumber").setValue(phoneNumber)
+        db.child("users").child(uid).child("normalizedPhone").setValue(normalizedPhone)
+        db.child("users").child(uid).child("accountId").setValue(uid)
         return uid
     }
 
