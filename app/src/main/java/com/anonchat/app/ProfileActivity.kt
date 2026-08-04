@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Base64
 import android.view.View
 import android.widget.ArrayAdapter
@@ -65,9 +66,11 @@ class ProfileActivity : AppCompatActivity() {
 
     // Image picker launcher
     private val pickImageLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { handleImagePicked(it) }
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { handleImagePicked(it) }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -126,8 +129,15 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         // Click to change photo
-        ivCameraIcon.setOnClickListener { pickImageLauncher.launch("image/*") }
-        ivProfilePic.setOnClickListener { pickImageLauncher.launch("image/*") }
+        ivCameraIcon.setOnClickListener { launchGalleryPicker() }
+        ivProfilePic.setOnClickListener { launchGalleryPicker() }
+    }
+
+    private fun launchGalleryPicker() {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+            type = "image/*"
+        }
+        pickImageLauncher.launch(intent)
     }
 
     private fun handleImagePicked(uri: Uri) {
