@@ -523,11 +523,15 @@ class MainActivity : AppCompatActivity() {
             sessionsRef.child(sessionId).removeValue()
         }
 
-        sessionMessagesListener?.let {
-            sessionId?.let { sessionsRef.child(it).child("messages").removeEventListener(it) }
+        sessionMessagesListener?.let { listener ->
+            sessionId?.let { id ->
+                sessionsRef.child(id).child("messages").removeEventListener(listener)
+            }
         }
-        partnerPresenceListener?.let {
-            sessionId?.let { sessionsRef.child(it).child("active").removeEventListener(it) }
+        partnerPresenceListener?.let { listener ->
+            sessionId?.let { id ->
+                sessionsRef.child(id).child("active").removeEventListener(listener)
+            }
         }
 
         // Remove from queue if still there, and cancel any pending onDisconnect cleanup for it
