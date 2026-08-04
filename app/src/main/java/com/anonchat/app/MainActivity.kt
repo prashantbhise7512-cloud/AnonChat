@@ -36,10 +36,13 @@ class MainActivity : AppCompatActivity() {
     private val sessionsRef by lazy { database.child("sessions") }
 
     private var currentSessionId: String? = null
+    private var currentPartnerId: String? = null
     private var currentPartnerName: String? = null
     private var sessionMessagesListener: ChildEventListener? = null
     private var partnerPresenceListener: ValueEventListener? = null
     private var threadMessagesListener: ChildEventListener? = null
+    private var matchListenerUser1: ChildEventListener? = null
+    private var matchListenerUser2: ChildEventListener? = null
     private var activeThreadId: String? = null
 
     private val messages = mutableListOf<ChatMessage>()
@@ -120,7 +123,9 @@ class MainActivity : AppCompatActivity() {
         messages.clear()
         adapter.submitList(emptyList())
         currentSessionId = null
+        currentPartnerId = null
         currentPartnerName = null
+        activeThreadId = null
         editMessage.isEnabled = false
 
         // Atomically check-and-claim a waiting partner (or add self to the queue) in a single
@@ -180,7 +185,7 @@ class MainActivity : AppCompatActivity() {
                         "active" to true
                     )
                     sessionsRef.child(sessionId).setValue(sessionData)
-                    connectToSession(sessionId, partnerName)
+                    connectToSession(sessionId, partnerId, partnerName)
                 } else {
                     // We're the one waiting now. If this device disconnects (app killed, network
                     // lost, crash) before we explicitly leave the queue, have the Firebase server
@@ -194,30 +199,80 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun waitForMatch() {
-        // Listen for sessions where we are user2
+        cleanupMatchListeners()
+
+        val listenerUser1 = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
+                handleIncomingMatch(snapshot)
+            }
+            override fun onChildChanged(s: DataSnapshot, p: String?) {}
+            override fun onChildRemoved(s: DataSnapshot) {}
+            override fun onChildMoved(s: DataSnapshot, p: String?) {}
+            override fun onCancelled(e: DatabaseError) {}
+        }
+
+        val listenerUser2 = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
+                handleIncomingMatch(snapshot)
+            }
+            override fun onChildChanged(s: DataSnapshot, p: String?) {}
+            override fun onChildRemoved(s: DataSnapshot) {}
+            override fun onChildMoved(s: DataSnapshot, p: String?) {}
+            override fun onCancelled(e: DatabaseError) {}
+        }
+
+        matchListenerUser1 = listenerUser1
+        sessionsRef.orderByChild("user1/userId").equalTo(userId)
+            .addChildEventListener(listenerUser1)
+
+        matchListenerUser2 = listenerUser2
         sessionsRef.orderByChild("user2/userId").equalTo(userId)
-            .addChildEventListener(object : ChildEventListener {
-                override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
-                    val active = snapshot.child("active").getValue(Boolean::class.java) ?: false
-                    if (!active) return
-                    val sessionId = snapshot.key ?: return
-                    val partnerName = snapshot.child("user1/userName").getValue(String::class.java) ?: "Stranger"
-                    connectToSession(sessionId, partnerName)
-                }
-                override fun onChildChanged(s: DataSnapshot, p: String?) {}
-                override fun onChildRemoved(s: DataSnapshot) {}
-                override fun onChildMoved(s: DataSnapshot, p: String?) {}
-                override fun onCancelled(e: DatabaseError) {}
-            })
+            .addChildEventListener(listenerUser2)
     }
 
-    private fun connectToSession(sessionId: String, partnerName: String) {
+    private fun handleIncomingMatch(snapshot: DataSnapshot) {
+        val active = snapshot.child("active").getValue(Boolean::class.java) ?: false
+        if (!active) return
+        val sessionId = snapshot.key ?: return
+        if (currentSessionId != null) return
+
+        val isUser1 = snapshot.child("user1/userId").getValue(String::class.java) == userId
+        val partnerId = if (isUser1) {
+            snapshot.child("user2/userId").getValue(String::class.java)
+        } else {
+            snapshot.child("user1/userId").getValue(String::class.java)
+        }
+        val partnerName = if (isUser1) {
+            snapshot.child("user2/userName").getValue(String::class.java)
+        } else {
+            snapshot.child("user1/userName").getValue(String::class.java)
+        } ?: "Stranger"
+
+        if (partnerId != null) {
+            connectToSession(sessionId, partnerId, partnerName)
+        }
+    }
+
+    private fun cleanupMatchListeners() {
+        matchListenerUser1?.let {
+            sessionsRef.orderByChild("user1/userId").equalTo(userId).removeEventListener(it)
+        }
+        matchListenerUser1 = null
+        matchListenerUser2?.let {
+            sessionsRef.orderByChild("user2/userId").equalTo(userId).removeEventListener(it)
+        }
+        matchListenerUser2 = null
+    }
+
+    private fun connectToSession(sessionId: String, partnerId: String, partnerName: String) {
         // We're matched now — cancel the onDisconnect queue-cleanup registered while waiting,
         // since our queue entry is already gone (removed by whoever matched with us, or by us
         // matching them) and we don't want a stale disconnect handler lingering around.
         queueRef.child(userId).onDisconnect().cancel()
+        cleanupMatchListeners()
 
         currentSessionId = sessionId
+        currentPartnerId = partnerId
         currentPartnerName = partnerName
         showConnectedState(partnerName)
         editMessage.isEnabled = true
@@ -272,10 +327,19 @@ class MainActivity : AppCompatActivity() {
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val threadId = snapshot.getValue(String::class.java)
+                    setThreadDebug(threadId)
                     listenForThreadMessages(threadId)
                 }
                 override fun onCancelled(error: DatabaseError) {}
             })
+    }
+
+    private fun setThreadDebug(threadId: String?) {
+        tvOnlineCount.text = if (threadId.isNullOrBlank()) {
+            "Online"
+        } else {
+            "Online • thread: ${threadId.takeIf { it.length <= 40 } ?: threadId.take(40) + "..."}"
+        }
     }
 
     private fun listenForThreadMessages(threadId: String?) {
@@ -345,7 +409,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun triggerSave() {
-        val partnerId = messages.firstOrNull { it.senderId != userId }?.senderId
+        val partnerId = currentPartnerId ?: messages.firstOrNull { it.senderId != userId }?.senderId
         val partnerName = currentPartnerName ?: "AnonUser"
         if (partnerId != null && !AuthActivity.TEST_MODE) {
             val db = com.google.firebase.database.FirebaseDatabase.getInstance()
@@ -465,7 +529,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doSaveChat(partnerName: String, gender: String?, age: Int?, city: String?, avatar: String?) {
-        val partnerId = messages.firstOrNull { it.senderId != userId }?.senderId
+        val partnerId = currentPartnerId ?: messages.firstOrNull { it.senderId != userId }?.senderId
 
         // Stable thread id: sorted user ids joined — same on both devices
         val threadId = if (partnerId != null) {
@@ -533,12 +597,23 @@ class MainActivity : AppCompatActivity() {
                 sessionsRef.child(id).child("active").removeEventListener(listener)
             }
         }
+        threadMessagesListener?.let { listener ->
+            activeThreadId?.let { threadId ->
+                FirebaseDatabase.getInstance().reference
+                    .child("chatThreads").child(threadId).child("messages")
+                    .removeEventListener(listener)
+            }
+        }
+
+        cleanupMatchListeners()
 
         // Remove from queue if still there, and cancel any pending onDisconnect cleanup for it
         queueRef.child(userId).onDisconnect().cancel()
         queueRef.child(userId).removeValue()
         currentSessionId = null
+        currentPartnerId = null
         currentPartnerName = null
+        activeThreadId = null
     }
 
     // === HELPERS ===

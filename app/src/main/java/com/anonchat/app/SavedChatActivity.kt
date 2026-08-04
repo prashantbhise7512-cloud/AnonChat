@@ -60,6 +60,7 @@ class SavedChatActivity : AppCompatActivity() {
 
         val chats = ChatStorage.getSavedChats(this)
         chat = chats.find { it.id == chatId } ?: run { finish(); return }
+        backfillChatData()
 
         val partnerName = chat.messages.firstOrNull { it.senderName != chat.userName }?.senderName
             ?: chat.partnerName.ifEmpty { "AnonUser" }
@@ -208,12 +209,30 @@ class SavedChatActivity : AppCompatActivity() {
     }
 
     private fun resolveThreadId(): String? {
+        chat.threadId?.takeIf { it.isNotBlank() }?.let { return it }
         val currentUid = TestSession.currentUserId(this) ?: TestSession.uid(this)
         val partnerUid = chat.partnerAccountId
-        return when {
-            !chat.threadId.isNullOrBlank() -> chat.threadId
-            currentUid != null && !partnerUid.isNullOrBlank() -> listOf(currentUid, partnerUid).sorted().joinToString("_")
-            else -> null
+            ?: chat.messages.firstOrNull { it.senderId != currentUid }?.senderId
+        if (!currentUid.isNullOrBlank() && !partnerUid.isNullOrBlank()) {
+            return listOf(currentUid, partnerUid).sorted().joinToString("_")
+        }
+
+        val distinctSenderIds = chat.messages.map { it.senderId }.distinct()
+        return if (distinctSenderIds.size == 2) distinctSenderIds.sorted().joinToString("_") else null
+    }
+
+    private fun backfillChatData() {
+        val currentUid = TestSession.currentUserId(this) ?: TestSession.uid(this)
+        val partnerUid = chat.partnerAccountId
+            ?: chat.messages.firstOrNull { it.senderId != currentUid }?.senderId
+        val threadId = resolveThreadId()
+
+        if (partnerUid != chat.partnerAccountId || threadId != chat.threadId) {
+            chat = chat.copy(
+                partnerAccountId = partnerUid ?: chat.partnerAccountId,
+                threadId = threadId ?: chat.threadId
+            )
+            ChatStorage.updateSavedChat(this, chat)
         }
     }
 
@@ -227,7 +246,9 @@ class SavedChatActivity : AppCompatActivity() {
     }
 
     private fun loadLastActive(chat: SavedChat) {
-        val partnerUid = chat.partnerAccountId ?: return
+        val partnerUid = chat.partnerAccountId
+            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
+            ?: return
         if (!AuthActivity.TEST_MODE) {
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid).child("lastActive")
@@ -267,7 +288,9 @@ class SavedChatActivity : AppCompatActivity() {
     }
 
     private fun loadToolbarAvatar(chat: SavedChat) {
-        val partnerUid = chat.partnerAccountId ?: return
+        val partnerUid = chat.partnerAccountId
+            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
+            ?: return
         if (!AuthActivity.TEST_MODE) {
             val iv = findViewById<CircleImageView>(R.id.ivToolbarAvatar)
             FirebaseDatabase.getInstance().reference
@@ -350,6 +373,7 @@ class SavedChatActivity : AppCompatActivity() {
 
         var fetchedAvatarBase64: String? = null
         val partnerUid = chat.partnerAccountId
+            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
         val cachedName = partnerUid?.let { TestSession.cachedProfileDisplayName(this, it) }
         val cachedGender = partnerUid?.let { TestSession.cachedProfileGender(this, it) }
         val cachedAge = partnerUid?.let { TestSession.cachedProfileAge(this, it) }

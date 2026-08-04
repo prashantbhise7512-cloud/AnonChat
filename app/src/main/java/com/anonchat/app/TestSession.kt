@@ -40,8 +40,7 @@ object TestSession {
     }
 
     fun normalizePhoneNumber(phoneNumber: String?): String {
-        val digits = phoneNumber.orEmpty().filter { it.isDigit() }
-        return if (digits.length > 10) digits.takeLast(10) else digits
+        return phoneNumber.orEmpty().filter { it.isDigit() }
     }
 
     /** True once the user has "verified" in test mode. */
@@ -107,8 +106,11 @@ object TestSession {
      * exists, otherwise the local test account id (test mode only).
      */
     fun currentUserId(context: Context): String? {
-        FirebaseAuth.getInstance().currentUser?.uid?.let { return it }
-        return if (AuthActivity.TEST_MODE) uid(context) else null
+        return if (AuthActivity.TEST_MODE) {
+            uid(context)
+        } else {
+            FirebaseAuth.getInstance().currentUser?.uid
+        }
     }
 
     // --- Local profile cache (used when Realtime Database is not reachable yet) ---

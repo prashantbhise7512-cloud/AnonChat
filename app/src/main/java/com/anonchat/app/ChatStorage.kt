@@ -75,6 +75,15 @@ object ChatStorage {
         }
     }
 
+    fun updateSavedChat(context: Context, updatedChat: SavedChat) {
+        val chats = getSavedChats(context).toMutableList()
+        val index = chats.indexOfFirst { it.id == updatedChat.id }
+        if (index >= 0) {
+            chats[index] = updatedChat
+            persistChats(context, chats)
+        }
+    }
+
     fun appendMessageToChat(context: Context, chatId: String, message: ChatMessage) {
         val chats = getSavedChats(context).toMutableList()
         val index = chats.indexOfFirst { it.id == chatId }
@@ -85,6 +94,29 @@ object ChatStorage {
             chats[index] = updated
             persistChats(context, chats)
         }
+    }
+
+    fun backfillThreadIds(context: Context) {
+        val currentUid = TestSession.currentUserId(context) ?: TestSession.uid(context)
+        val chats = getSavedChats(context)
+        val updated = chats.map { chat ->
+            val partnerUid = chat.partnerAccountId ?: chat.messages.firstOrNull { it.senderId != currentUid }?.senderId
+            val threadId = chat.threadId ?: deriveThreadId(chat, currentUid, partnerUid)
+            if (chat.partnerAccountId != partnerUid || chat.threadId != threadId) {
+                chat.copy(partnerAccountId = partnerUid, threadId = threadId)
+            } else {
+                chat
+            }
+        }
+        if (updated != chats) {
+            persistChats(context, updated)
+        }
+    }
+
+    private fun deriveThreadId(chat: SavedChat, currentUid: String?, partnerUid: String?): String? {
+        chat.threadId?.takeIf { it.isNotBlank() }?.let { return it }
+        val userIds = listOfNotNull(currentUid, partnerUid).distinct()
+        return if (userIds.size == 2) userIds.sorted().joinToString("_") else null
     }
 
     private fun parseSavedChats(json: String): List<SavedChat> {

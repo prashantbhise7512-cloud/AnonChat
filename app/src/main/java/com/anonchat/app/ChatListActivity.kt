@@ -152,6 +152,8 @@ class ChatListActivity : AppCompatActivity() {
     }
 
     private fun loadSavedChats() {
+        ChatStorage.backfillThreadIds(this)
+
         val chats = ChatStorage.getSavedChats(this)
             .sortedByDescending { chat ->
                 chat.messages.lastOrNull()?.timestamp ?: chat.savedAt
@@ -218,7 +220,8 @@ class ChatListActivity : AppCompatActivity() {
     private fun deriveThreadId(chat: com.anonchat.app.model.SavedChat): String? {
         val currentUid = TestSession.currentUserId(this) ?: return null
         val partnerUid = chat.partnerAccountId
-        return if (!partnerUid.isNullOrBlank()) listOf(currentUid, partnerUid).sorted().joinToString("_") else null
+            ?: chat.messages.firstOrNull { it.senderId != currentUid }?.senderId
+        return partnerUid?.let { listOf(currentUid, it).sorted().joinToString("_") }
     }
 
     private fun parseThreadMessage(snapshot: com.google.firebase.database.DataSnapshot): com.anonchat.app.model.ChatMessage? {

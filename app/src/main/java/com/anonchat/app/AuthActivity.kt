@@ -190,26 +190,9 @@ class AuthActivity : AppCompatActivity() {
         val phoneNumber = getFullPhoneNumber()
         TestSession.signIn(this, phoneNumber)
 
-        if (auth.currentUser != null) {
-            navigateToProfile()
-            return
-        }
-
-        showLoading(true)
-        btnVerify.isEnabled = false
-
-        // Never let a slow/offline sign-in attempt block the flow.
-        val fallbackHandler = Handler(Looper.getMainLooper())
-        val fallback = Runnable { navigateToProfile() }
-        fallbackHandler.postDelayed(fallback, 5_000L)
-
-        auth.signInAnonymously().addOnCompleteListener(this) {
-            fallbackHandler.removeCallbacks(fallback)
-            showLoading(false)
-            btnVerify.isEnabled = true
-            // Success or failure, test mode always lets the user in.
-            navigateToProfile()
-        }
+        // In test mode we use a deterministic phone-based identity, not Firebase auth.
+        // This prevents a new anonymous auth user from being created every login.
+        navigateToProfile()
     }
 
     // --- Phone Number Validation ---
