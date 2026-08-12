@@ -387,16 +387,19 @@ class MainActivity : AppCompatActivity() {
                     when {
                         iSaved && partnerSaved -> {
                             // Both saved — save locally if not already done
+                            val partnerId = savers.first { it != userId }
+                            val threadId = listOf(userId, partnerId).sorted().joinToString("_")
                             val existing = ChatStorage.getSavedChats(this@MainActivity)
-                            val threadId = listOf(userId, savers.first { it != userId }).sorted().joinToString("_")
                             val alreadySaved = existing.any { it.threadId == threadId }
                             if (!alreadySaved) {
                                 triggerSave()
-                                addSystemMessageToChat("\u2705 Chat saved by both users")
                             }
+                            addSystemMessageToChat("\u2705 Chat saved by both users")
                         }
                         partnerSaved && !iSaved -> {
                             addSystemMessageToChat("\uD83D\uDCBE Partner has saved chat", green = true)
+                            // Re-show save button so this user can confirm
+                            btnSaveChat.visibility = View.VISIBLE
                         }
                     }
                 }
@@ -419,9 +422,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun triggerSave() {
-        val partnerId = currentPartnerId ?: messages.firstOrNull { it.senderId != userId }?.senderId
-        val partnerName = currentPartnerName ?: "AnonUser"
-        if (partnerId != null && !AuthActivity.TEST_MODE) {
+        val partnerId = currentPartnerId
+            ?: messages.firstOrNull { it.senderId != userId && it.senderId != "system" }?.senderId
+        val partnerName = currentPartnerName ?: "AnnoUser"
+
+        if (partnerId == null) {
+            // Cannot determine partner — save locally without thread
+            doSaveChat(partnerName, null, null, null, null)
+            return
+        }
+
+        if (!AuthActivity.TEST_MODE) {
             val db = com.google.firebase.database.FirebaseDatabase.getInstance()
             db.reference.child("users").child(partnerId)
                 .addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
@@ -431,9 +442,7 @@ class MainActivity : AppCompatActivity() {
                         val gender = profileSnapshot.child("gender").getValue(String::class.java)
                         val age = profileSnapshot.child("age").getValue(Long::class.java)?.toInt()
                         val city = profileSnapshot.child("city").getValue(String::class.java)
-                        val avatar = snapshot.child("avatar").getValue(String::class.java)
-
-                        doSaveChat(displayName, gender, age, city, avatar)
+                        doSaveChat(displayName, gender, age, city, null)
                     }
                     override fun onCancelled(e: com.google.firebase.database.DatabaseError) {
                         doSaveChat(partnerName, null, null, null, null)

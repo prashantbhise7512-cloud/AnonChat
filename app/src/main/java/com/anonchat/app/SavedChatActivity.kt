@@ -159,8 +159,6 @@ class SavedChatActivity : AppCompatActivity() {
     }
 
     private fun listenForNewMessages(threadId: String) {
-        val lastTs = messages.lastOrNull()?.timestamp ?: 0L
-
         threadRef = FirebaseDatabase.getInstance().reference
             .child("threads").child(threadId).child("messages")
 
@@ -204,7 +202,7 @@ class SavedChatActivity : AppCompatActivity() {
             override fun onCancelled(e: DatabaseError) {}
         }
 
-        threadRef!!.orderByChild("timestamp").startAt(lastTs.toDouble())
+        threadRef!!.orderByChild("timestamp")
             .addChildEventListener(threadListener!!)
     }
 
