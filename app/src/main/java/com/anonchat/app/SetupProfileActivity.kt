@@ -69,15 +69,14 @@ class SetupProfileActivity : AppCompatActivity() {
             val uid = TestSession.currentUserId(this) ?: "unknown"
             val db = FirebaseDatabase.getInstance()
 
-            // Save profile to Firebase
-            val profileData = HashMap<String, Any?>()
-            profileData["displayName"] = name
-            profileData["gender"] = gender
-            profileData["age"] = age
-            profileData["city"] = null
-
             if (!AuthActivity.TEST_MODE) {
+                // Build profile data — include all non-null fields
+                val profileData = mutableMapOf<String, Any>("displayName" to name)
+                if (gender != null) profileData["gender"] = gender
+                if (age != null) profileData["age"] = age
+
                 db.reference.child("users").child(uid).child("profile").setValue(profileData)
+
                 // Save avatar to Firebase if set
                 avatarBase64?.let { avatar ->
                     db.reference.child("users").child(uid).child("avatar").setValue(avatar)

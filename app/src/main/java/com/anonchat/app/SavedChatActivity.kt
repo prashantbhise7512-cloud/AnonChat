@@ -36,7 +36,7 @@ class SavedChatActivity : AppCompatActivity() {
     private lateinit var recyclerMessages: RecyclerView
     private lateinit var myId: String
     private lateinit var chat: SavedChat
-    // Custom header views
+
     private lateinit var tvToolbarTitle: TextView
     private lateinit var tvToolbarSubtitle: TextView
 
@@ -46,55 +46,52 @@ class SavedChatActivity : AppCompatActivity() {
 
         chatId = intent.getStringExtra("CHAT_ID") ?: run { finish(); return }
 
-        // Mark this chat as read
-        val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-        prefs.edit().putLong("read_time_$chatId", System.currentTimeMillis()).apply()
+        // Mark as read
+        getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+            .edit().putLong("read_time_$chatId", System.currentTimeMillis()).apply()
 
         val btnOverflowMenu = findViewById<ImageView>(R.id.btnOverflowMenu)
+        val btnBack = findViewById<ImageView>(R.id.btnBack)
         recyclerMessages = findViewById(R.id.recyclerMessages)
         val editMessage = findViewById<EditText>(R.id.editMessage)
         val btnSend = findViewById<FrameLayout>(R.id.btnSend)
         tvToolbarTitle = findViewById(R.id.tvToolbarTitle)
         tvToolbarSubtitle = findViewById(R.id.tvToolbarSubtitle)
-        val btnBack = findViewById<ImageView>(R.id.btnBack)
 
         val chats = ChatStorage.getSavedChats(this)
         chat = chats.find { it.id == chatId } ?: run { finish(); return }
-        backfillChatData()
 
-        val partnerName = chat.messages.firstOrNull { it.senderName != chat.userName }?.senderName
-            ?: chat.partnerName.ifEmpty { "AnonUser" }
+        // Resolve my user id
+        myId = TestSession.currentUserId(this) ?: ""
+
+        val partnerName = chat.partnerName.ifEmpty {
+            chat.messages.firstOrNull { it.senderId != myId }?.senderName ?: "AnnoUser"
+        }
         tvToolbarTitle.text = partnerName
-        tvToolbarSubtitle.text = "last seen..."
+        tvToolbarSubtitle.text = "..."
         btnBack.setOnClickListener { finish() }
 
-        loadLastActive(chat)
-        loadToolbarAvatar(chat)
+        loadLastActive()
+        loadToolbarAvatar()
 
-        // Tapping title/avatar shows partner profile
         val toolbarTitleBlock = findViewById<LinearLayout>(R.id.toolbarTitleBlock)
-        toolbarTitleBlock.setOnClickListener { showPartnerProfileDialog(chat) }
-        findViewById<de.hdodenhof.circleimageview.CircleImageView>(R.id.ivToolbarAvatar)
-            .setOnClickListener { showPartnerProfileDialog(chat) }
+        toolbarTitleBlock.setOnClickListener { showPartnerProfileDialog() }
+        findViewById<CircleImageView>(R.id.ivToolbarAvatar).setOnClickListener { showPartnerProfileDialog() }
 
-        myId = chat.messages.firstOrNull { it.senderName == chat.userName }?.senderId
-            ?: TestSession.currentUserId(this)
-            ?: TestSession.uid(this)
-            ?: ""
-
+        // Load messages
         messages.addAll(chat.messages)
         adapter = MessageAdapter(myId)
         recyclerMessages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         recyclerMessages.adapter = adapter
         adapter.submitList(messages.toList())
 
-        // Listen for new Firebase messages if a thread exists (or can be derived from the saved partner id)
-        val resolvedThreadId = resolveThreadId()
-        if (resolvedThreadId != null) {
-            listenForNewMessages(resolvedThreadId)
+        // Resolve thread id and listen for new messages
+        val threadId = getThreadId()
+        if (threadId != null && !AuthActivity.TEST_MODE) {
+            listenForNewMessages(threadId)
         }
 
-        // Send button
+        // Send
         btnSend.alpha = 0.5f
         editMessage.addTextChangedListener { text ->
             btnSend.alpha = if (text.isNullOrBlank()) 0.5f else 1.0f
@@ -119,78 +116,81 @@ class SavedChatActivity : AppCompatActivity() {
             persistMessages()
             editMessage.text?.clear()
 
-            // Write to Firebase thread so partner receives in real time
-            val resolvedThreadId = resolveThreadId()
-            if (resolvedThreadId != null) {
-                val messagePayload = mapOf(
-                    "id" to msg.id,
-                    "senderId" to msg.senderId,
-                    "senderName" to msg.senderName,
-                    "message" to msg.message,
-                    "timestamp" to msg.timestamp,
-                    "status" to "sent"
-                )
-
+            // Write to Firebase /threads/{threadId}/messages
+            val tid = getThreadId()
+            if (tid != null && !AuthActivity.TEST_MODE) {
                 FirebaseDatabase.getInstance().reference
-                    .child("chatThreads").child(resolvedThreadId).child("messages")
-                    .push().setValue(messagePayload)
-
-                val threadRef = FirebaseDatabase.getInstance().reference
-                    .child("threads").child(resolvedThreadId)
-                threadRef.child("participants").setValue(
-                    listOfNotNull(myId, chat.partnerAccountId).distinct()
-                )
-                threadRef.child("createdAt").setValue(com.google.firebase.database.ServerValue.TIMESTAMP)
-                threadRef.child("messages").push().setValue(messagePayload)
+                    .child("threads").child(tid).child("messages")
+                    .push().setValue(mapOf(
+                        "id" to msg.id,
+                        "senderId" to msg.senderId,
+                        "senderName" to msg.senderName,
+                        "message" to msg.message,
+                        "timestamp" to msg.timestamp,
+                        "status" to "sent"
+                    ))
             }
         }
 
         btnOverflowMenu.setOnClickListener { view -> showOverflowMenu(view) }
     }
 
-    // Listen to /threads/{threadId}/messages starting from last saved message
+    /** Derive a stable thread id from both user ids (sorted). Same on both devices. */
+    private fun getThreadId(): String? {
+        if (chat.threadId != null && chat.threadId!!.isNotBlank()) return chat.threadId
+
+        val partnerId = chat.partnerAccountId
+            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
+            ?: return null
+
+        val threadId = listOf(myId, partnerId).sorted().joinToString("_")
+
+        // Backfill threadId into local storage if missing
+        if (chat.threadId == null) {
+            chat = chat.copy(threadId = threadId)
+            val allChats = ChatStorage.getSavedChats(this).toMutableList()
+            val idx = allChats.indexOfFirst { it.id == chatId }
+            if (idx >= 0) {
+                allChats[idx] = chat
+                ChatStorage.persistChats(this, allChats)
+            }
+        }
+        return threadId
+    }
+
     private fun listenForNewMessages(threadId: String) {
         val lastTs = messages.lastOrNull()?.timestamp ?: 0L
 
         threadRef = FirebaseDatabase.getInstance().reference
-            .child("chatThreads").child(threadId).child("messages")
+            .child("threads").child(threadId).child("messages")
 
         threadListener = object : ChildEventListener {
             override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
                 val msgId = snapshot.child("id").getValue(String::class.java) ?: return
+                if (messages.any { it.id == msgId }) return // already loaded
+
                 val senderId = snapshot.child("senderId").getValue(String::class.java) ?: return
                 val senderName = snapshot.child("senderName").getValue(String::class.java) ?: return
                 val text = snapshot.child("message").getValue(String::class.java) ?: return
                 val ts = snapshot.child("timestamp").getValue(Long::class.java) ?: return
 
-                // Skip already-loaded messages
-                if (messages.any { it.id == msgId }) return
+                val msg = ChatMessage(msgId, senderId, senderName, text, ts,
+                    if (senderId == myId) "sent" else "read")
 
-                val msg = ChatMessage(
-                    id = msgId,
-                    senderId = senderId,
-                    senderName = senderName,
-                    message = text,
-                    timestamp = ts,
-                    status = if (senderId == myId) "sent" else "read"
-                )
                 messages.add(msg)
                 messages.sortBy { it.timestamp }
                 adapter.submitList(messages.toList())
                 recyclerMessages.scrollToPosition(messages.size - 1)
                 persistMessages()
 
-                // Update unread timestamp
-                val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-                prefs.edit().putLong("read_time_$chatId", System.currentTimeMillis()).apply()
-
-                // Mark message as read in Firebase
+                // Mark read
                 if (senderId != myId) {
                     snapshot.ref.child("status").setValue("read")
+                    getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+                        .edit().putLong("read_time_$chatId", System.currentTimeMillis()).apply()
                 }
             }
             override fun onChildChanged(s: DataSnapshot, p: String?) {
-                // Update tick status when partner reads our messages
                 val msgId = s.child("id").getValue(String::class.java) ?: return
                 val status = s.child("status").getValue(String::class.java) ?: return
                 val idx = messages.indexOfFirst { it.id == msgId }
@@ -208,34 +208,6 @@ class SavedChatActivity : AppCompatActivity() {
             .addChildEventListener(threadListener!!)
     }
 
-    private fun resolveThreadId(): String? {
-        chat.threadId?.takeIf { it.isNotBlank() }?.let { return it }
-        val currentUid = TestSession.currentUserId(this) ?: TestSession.uid(this)
-        val partnerUid = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != currentUid }?.senderId
-        if (!currentUid.isNullOrBlank() && !partnerUid.isNullOrBlank()) {
-            return listOf(currentUid, partnerUid).sorted().joinToString("_")
-        }
-
-        val distinctSenderIds = chat.messages.map { it.senderId }.distinct()
-        return if (distinctSenderIds.size == 2) distinctSenderIds.sorted().joinToString("_") else null
-    }
-
-    private fun backfillChatData() {
-        val currentUid = TestSession.currentUserId(this) ?: TestSession.uid(this)
-        val partnerUid = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != currentUid }?.senderId
-        val threadId = resolveThreadId()
-
-        if (partnerUid != chat.partnerAccountId || threadId != chat.threadId) {
-            chat = chat.copy(
-                partnerAccountId = partnerUid ?: chat.partnerAccountId,
-                threadId = threadId ?: chat.threadId
-            )
-            ChatStorage.updateSavedChat(this, chat)
-        }
-    }
-
     private fun persistMessages() {
         val allChats = ChatStorage.getSavedChats(this).toMutableList()
         val idx = allChats.indexOfFirst { it.id == chatId }
@@ -245,65 +217,37 @@ class SavedChatActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadLastActive(chat: SavedChat) {
+    private fun loadLastActive() {
         val partnerUid = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
-            ?: return
+            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId ?: return
         if (!AuthActivity.TEST_MODE) {
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid).child("lastActive")
                 .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        tvToolbarSubtitle.text = formatLastActive(snapshot.getValue(Long::class.java))
+                    override fun onDataChange(s: DataSnapshot) {
+                        tvToolbarSubtitle.text = formatLastActive(s.getValue(Long::class.java))
                     }
-                    override fun onCancelled(error: DatabaseError) {}
+                    override fun onCancelled(e: DatabaseError) {}
                 })
-        } else {
-            val ts = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-                .getLong("last_active_$partnerUid", 0L)
-            tvToolbarSubtitle.text = formatLastActive(ts.takeIf { it > 0 })
         }
     }
 
-    private fun formatLastActive(timestamp: Long?): String {
-        if (timestamp == null || timestamp == 0L) return "last active recently"
-
-        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-        val now = java.util.Calendar.getInstance()
-        val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-        val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
-
-        val timeString = timeFormat.format(java.util.Date(timestamp))
-        val dateString = dateFormat.format(java.util.Date(timestamp))
-
-        return when {
-            calendar.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
-                calendar.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR) ->
-                "last active today at $timeString"
-            calendar.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
-                calendar.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR) - 1 ->
-                "last active yesterday at $timeString"
-            else -> "last active $dateString at $timeString"
-        }
-    }
-
-    private fun loadToolbarAvatar(chat: SavedChat) {
+    private fun loadToolbarAvatar() {
         val partnerUid = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
-            ?: return
+            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId ?: return
         if (!AuthActivity.TEST_MODE) {
             val iv = findViewById<CircleImageView>(R.id.ivToolbarAvatar)
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid).child("avatar")
                 .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        val data = snapshot.getValue(String::class.java) ?: return
+                    override fun onDataChange(s: DataSnapshot) {
+                        val data = s.getValue(String::class.java) ?: return
                         try {
                             val bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT)
                             iv.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
                         } catch (_: Exception) {}
                     }
-                    override fun onCancelled(error: DatabaseError) {}
+                    override fun onCancelled(e: DatabaseError) {}
                 })
         }
     }
@@ -318,10 +262,8 @@ class SavedChatActivity : AppCompatActivity() {
                         .setTitle("Delete saved chat?")
                         .setMessage("This cannot be undone.")
                         .setPositiveButton("Delete") { _, _ ->
-                            ChatStorage.deleteChat(this, chatId)
-                            finish()
-                        }
-                        .setNegativeButton("Cancel", null).show()
+                            ChatStorage.deleteChat(this, chatId); finish()
+                        }.setNegativeButton("Cancel", null).show()
                     true
                 }
                 R.id.action_block -> {
@@ -330,15 +272,13 @@ class SavedChatActivity : AppCompatActivity() {
                         .setMessage("You won't be matched with them again.")
                         .setPositiveButton("Block") { _, _ ->
                             val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-                            val blocked = prefs.getStringSet("blocked_users", mutableSetOf())?.toMutableSet()
-                                ?: mutableSetOf()
+                            val blocked = prefs.getStringSet("blocked_users", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
                             chat.partnerAccountId?.let { blocked.add(it) }
                             prefs.edit().putStringSet("blocked_users", blocked).apply()
                             ChatStorage.deleteChat(this, chatId)
                             Toast.makeText(this, "User blocked", Toast.LENGTH_SHORT).show()
                             finish()
-                        }
-                        .setNegativeButton("Cancel", null).show()
+                        }.setNegativeButton("Cancel", null).show()
                     true
                 }
                 else -> false
@@ -352,7 +292,7 @@ class SavedChatActivity : AppCompatActivity() {
         threadListener?.let { threadRef?.removeEventListener(it) }
     }
 
-    private fun showPartnerProfileDialog(chat: SavedChat) {
+    private fun showPartnerProfileDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_partner_profile, null)
         val ivAvatar = dialogView.findViewById<CircleImageView>(R.id.ivPartnerAvatar)
         val tvName = dialogView.findViewById<TextView>(R.id.tvPartnerName)
@@ -360,7 +300,7 @@ class SavedChatActivity : AppCompatActivity() {
         val tvAge = dialogView.findViewById<TextView>(R.id.tvPartnerAge)
         val tvCity = dialogView.findViewById<TextView>(R.id.tvPartnerCity)
 
-        tvName.text = chat.partnerName.ifEmpty { "AnonUser" }
+        tvName.text = chat.partnerName.ifEmpty { "AnnoUser" }
         tvGender.text = chat.partnerGender ?: "Not specified"
         tvAge.text = if (chat.partnerAge != null) chat.partnerAge.toString() else "Not specified"
         tvCity.text = chat.partnerCity ?: "Not specified"
@@ -371,78 +311,65 @@ class SavedChatActivity : AppCompatActivity() {
             else -> ivAvatar.borderColor = resources.getColor(R.color.primary, theme)
         }
 
-        var fetchedAvatarBase64: String? = null
+        var fetchedAvatar: String? = null
         val partnerUid = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
-        val cachedName = partnerUid?.let { TestSession.cachedProfileDisplayName(this, it) }
-        val cachedGender = partnerUid?.let { TestSession.cachedProfileGender(this, it) }
-        val cachedAge = partnerUid?.let { TestSession.cachedProfileAge(this, it) }
-        val cachedCity = partnerUid?.let { TestSession.cachedProfileCity(this, it) }
-        val cachedAvatar = partnerUid?.let { TestSession.cachedProfileAvatar(this, it) }
-
-        if (!cachedName.isNullOrBlank() || !cachedGender.isNullOrBlank() || cachedAge != null || !cachedCity.isNullOrBlank() || !cachedAvatar.isNullOrBlank()) {
-            tvName.text = cachedName ?: chat.partnerName.ifEmpty { "AnonUser" }
-            tvGender.text = cachedGender ?: chat.partnerGender ?: "Not specified"
-            tvAge.text = if (cachedAge != null && cachedAge >= 0) cachedAge.toString() else if (chat.partnerAge != null) chat.partnerAge.toString() else "Not specified"
-            tvCity.text = cachedCity ?: chat.partnerCity ?: "Not specified"
-            if (!cachedAvatar.isNullOrEmpty()) {
-                fetchedAvatarBase64 = cachedAvatar
-                try {
-                    val bytes = android.util.Base64.decode(cachedAvatar, android.util.Base64.DEFAULT)
-                    ivAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-                } catch (_: Exception) {}
-            }
-        }
-
         if (partnerUid != null && !AuthActivity.TEST_MODE) {
             FirebaseDatabase.getInstance().reference
-                .child("users").child(partnerUid)
+                .child("users").child(partnerUid).child("avatar")
                 .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        val profile = snapshot.child("profile")
-                        val fetchedName = profile.child("displayName").getValue(String::class.java)
-                            ?.takeIf { it.isNotBlank() }
-                            ?: cachedName ?: chat.partnerName.ifEmpty { "AnonUser" }
-                        val fetchedGender = profile.child("gender").getValue(String::class.java)
-                            ?.takeIf { it.isNotBlank() }
-                            ?: cachedGender ?: chat.partnerGender ?: "Not specified"
-                        val fetchedAge = profile.child("age").getValue(Long::class.java)?.toInt() ?: cachedAge
-                        val fetchedCity = profile.child("city").getValue(String::class.java)
-                            ?.takeIf { it.isNotBlank() }
-                            ?: cachedCity ?: chat.partnerCity ?: "Not specified"
-
-                        tvName.text = fetchedName
-                        tvGender.text = fetchedGender
-                        tvAge.text = if (fetchedAge != null && fetchedAge >= 0) fetchedAge.toString() else "Not specified"
-                        tvCity.text = fetchedCity
-
-                        val data = snapshot.child("avatar").getValue(String::class.java)
-                        if (!data.isNullOrEmpty()) {
-                            fetchedAvatarBase64 = data
-                            try {
-                                val bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT)
-                                ivAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-                            } catch (_: Exception) {}
-                        }
+                    override fun onDataChange(s: DataSnapshot) {
+                        val data = s.getValue(String::class.java) ?: return
+                        fetchedAvatar = data
+                        try {
+                            val bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+                            ivAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                        } catch (_: Exception) {}
                     }
-                    override fun onCancelled(error: DatabaseError) {}
+                    override fun onCancelled(e: DatabaseError) {}
+                })
+
+            // Also load fresh profile data
+            FirebaseDatabase.getInstance().reference
+                .child("users").child(partnerUid).child("profile")
+                .addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(s: DataSnapshot) {
+                        tvName.text = s.child("displayName").getValue(String::class.java) ?: "AnnoUser"
+                        tvGender.text = s.child("gender").getValue(String::class.java) ?: "Not specified"
+                        val age = s.child("age").getValue(Long::class.java)
+                        tvAge.text = if (age != null) age.toString() else "Not specified"
+                        tvCity.text = s.child("city").getValue(String::class.java) ?: "Not specified"
+                    }
+                    override fun onCancelled(e: DatabaseError) {}
                 })
         }
 
         ivAvatar.setOnClickListener {
-            val base64 = fetchedAvatarBase64
+            val base64 = fetchedAvatar
             if (base64 != null) {
-                val intent = Intent(this, PhotoViewActivity::class.java)
-                intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_BASE64, base64)
-                startActivity(intent)
+                startActivity(Intent(this, PhotoViewActivity::class.java).apply {
+                    putExtra(PhotoViewActivity.EXTRA_IMAGE_BASE64, base64)
+                })
             } else {
                 Toast.makeText(this, "No profile picture available", Toast.LENGTH_SHORT).show()
             }
         }
 
-        AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setPositiveButton("Close", null)
-            .show()
+        AlertDialog.Builder(this).setView(dialogView).setPositiveButton("Close", null).show()
+    }
+
+    private fun formatLastActive(timestamp: Long?): String {
+        if (timestamp == null || timestamp == 0L) return "last seen recently"
+        val diff = System.currentTimeMillis() - timestamp
+        val minutes = (diff / 60000).toInt()
+        if (minutes < 1) return "Active now"
+        if (minutes < 60) return "last seen $minutes min ago"
+        val hours = minutes / 60
+        if (hours < 24) return "last seen ${hours}h ago"
+        val yesterday = java.util.Calendar.getInstance().apply { add(java.util.Calendar.DAY_OF_YEAR, -1) }
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+        return if (cal.get(java.util.Calendar.YEAR) == yesterday.get(java.util.Calendar.YEAR) &&
+            cal.get(java.util.Calendar.DAY_OF_YEAR) == yesterday.get(java.util.Calendar.DAY_OF_YEAR))
+            "last seen yesterday"
+        else "last seen ${java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date(timestamp))}"
     }
 }
