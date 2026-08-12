@@ -87,7 +87,7 @@ class SavedChatActivity : AppCompatActivity() {
 
         // Resolve thread id and listen for new messages
         val threadId = getThreadId()
-        if (threadId != null && !AuthActivity.TEST_MODE) {
+        if (threadId != null) {
             listenForNewMessages(threadId)
         }
 
@@ -118,7 +118,7 @@ class SavedChatActivity : AppCompatActivity() {
 
             // Write to Firebase /threads/{threadId}/messages
             val tid = getThreadId()
-            if (tid != null && !AuthActivity.TEST_MODE) {
+            if (tid != null) {
                 FirebaseDatabase.getInstance().reference
                     .child("threads").child(tid).child("messages")
                     .push().setValue(mapOf(
