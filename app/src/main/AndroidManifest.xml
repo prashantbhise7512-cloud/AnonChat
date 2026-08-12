@@ -48,6 +48,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".SetupProfileActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".PhotoViewActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.NoActionBar" />

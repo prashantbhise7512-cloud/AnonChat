@@ -215,7 +215,17 @@ class AuthActivity : AppCompatActivity() {
     }
 
     private fun validatePhoneNumber(phoneNumber: String): Boolean {
-        // E.164 format: "+" followed by 7 to 15 digits
+        val selectedCountryCode = countryCodes[spinnerCountryCode.selectedItemPosition]
+        val countryCode = selectedCountryCode.split(" ")[0] // "+91", "+1", etc.
+        val localNumber = etPhone.text?.toString()?.trim() ?: ""
+
+        // Country-specific validation
+        if (countryCode == "+91" && localNumber.length != 10) {
+            tilPhone.error = "Enter a valid 10-digit mobile number"
+            return false
+        }
+
+        // General E.164 format: "+" followed by 7 to 15 digits
         val e164Regex = Regex("^\\+[1-9]\\d{6,14}$")
         if (phoneNumber.isEmpty() || !e164Regex.matches(phoneNumber)) {
             tilPhone.error = "Enter a valid phone number with country code"
@@ -516,9 +526,16 @@ class AuthActivity : AppCompatActivity() {
         if (hasNavigated || isFinishing) return
         hasNavigated = true
 
-        val intent = Intent(this, ProfileActivity::class.java)
+        // Check if profile setup is already done (returning user)
+        val setupDone = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+            .getBoolean("profile_setup_done", false)
+
+        val intent = if (setupDone) {
+            Intent(this, ChatListActivity::class.java)
+        } else {
+            Intent(this, SetupProfileActivity::class.java)
+        }
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        intent.putExtra(ProfileActivity.EXTRA_FROM_LOGIN, true)
         startActivity(intent)
         finish()
     }
