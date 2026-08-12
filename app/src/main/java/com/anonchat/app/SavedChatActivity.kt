@@ -137,23 +137,30 @@ class SavedChatActivity : AppCompatActivity() {
 
     /** Derive a stable thread id from both user ids (sorted). Same on both devices. */
     private fun getThreadId(): String? {
-        if (chat.threadId != null && chat.threadId!!.isNotBlank()) return chat.threadId
+        // If we already have one stored, use it
+        if (!chat.threadId.isNullOrBlank()) return chat.threadId
 
-        val partnerId = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId
-            ?: return null
+        // Derive from the two distinct sender IDs in the messages
+        val senderIds = chat.messages
+            .map { it.senderId }
+            .filter { it.isNotBlank() && it != "system" }
+            .distinct()
 
-        val threadId = listOf(myId, partnerId).sorted().joinToString("_")
+        val threadId = if (senderIds.size == 2) {
+            senderIds.sorted().joinToString("_")
+        } else if (!myId.isNullOrBlank() && !chat.partnerAccountId.isNullOrBlank()) {
+            listOf(myId, chat.partnerAccountId!!).sorted().joinToString("_")
+        } else {
+            return null
+        }
 
-        // Backfill threadId into local storage if missing
-        if (chat.threadId == null) {
-            chat = chat.copy(threadId = threadId)
-            val allChats = ChatStorage.getSavedChats(this).toMutableList()
-            val idx = allChats.indexOfFirst { it.id == chatId }
-            if (idx >= 0) {
-                allChats[idx] = chat
-                ChatStorage.persistChats(this, allChats)
-            }
+        // Backfill threadId into local storage
+        chat = chat.copy(threadId = threadId)
+        val allChats = ChatStorage.getSavedChats(this).toMutableList()
+        val idx = allChats.indexOfFirst { it.id == chatId }
+        if (idx >= 0) {
+            allChats[idx] = chat
+            ChatStorage.persistChats(this, allChats)
         }
         return threadId
     }
