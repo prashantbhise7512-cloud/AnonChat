@@ -159,9 +159,7 @@ class ProfileActivity : AppCompatActivity() {
             prefs.edit().putString("avatar_$uid", base64).apply()
 
             // Save to Firebase so other users can fetch it on demand
-            if (!AuthActivity.TEST_MODE) {
-                database.reference.child("users").child(uid).child("avatar").setValue(base64)
-            }
+            database.reference.child("users").child(uid).child("avatar").setValue(base64)
 
             Toast.makeText(this, "Photo updated!", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
