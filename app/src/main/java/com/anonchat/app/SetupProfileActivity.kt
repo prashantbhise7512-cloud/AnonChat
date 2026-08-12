@@ -27,9 +27,18 @@ class SetupProfileActivity : AppCompatActivity() {
     private var avatarBase64: String? = null
 
     private val pickImageLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { handleImagePicked(it) }
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { handleImagePicked(it) }
+        }
+    }
+
+    private fun launchGalleryPicker() {
+        val intent = Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+            type = "image/*"
+        }
+        pickImageLauncher.launch(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,8 +58,8 @@ class SetupProfileActivity : AppCompatActivity() {
             .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
         // Photo picker
-        ivCamera.setOnClickListener { pickImageLauncher.launch("image/*") }
-        ivPhoto.setOnClickListener { pickImageLauncher.launch("image/*") }
+        ivCamera.setOnClickListener { launchGalleryPicker() }
+        ivPhoto.setOnClickListener { launchGalleryPicker() }
 
         // Save
         btnSave.setOnClickListener {

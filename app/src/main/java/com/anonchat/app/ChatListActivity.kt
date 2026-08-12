@@ -91,6 +91,7 @@ class ChatListActivity : AppCompatActivity() {
         }
 
         loadDisplayName()
+        requestNotificationPermission()
     }
 
     override fun onResume() {
@@ -101,6 +102,8 @@ class ChatListActivity : AppCompatActivity() {
         loadDisplayName()
         updateLastActive()
         startSavedChatListeners()
+        // Start notification service for background message delivery
+        MessageNotificationService.start(this)
     }
 
     override fun onDestroy() {
@@ -111,6 +114,15 @@ class ChatListActivity : AppCompatActivity() {
     private fun showChatsTab() {
         tabChatsContent.visibility = View.VISIBLE
         tabProfileContent.visibility = View.GONE
+    }
+
+    private fun requestNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
+            }
+        }
     }
 
     private fun openProfile() {
@@ -201,7 +213,7 @@ class ChatListActivity : AppCompatActivity() {
                 override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
             }
 
-            val threadRef = database.reference.child("chatThreads").child(threadId).child("messages")
+            val threadRef = database.reference.child("threads").child(threadId).child("messages")
             threadRef.orderByChild("timestamp").addChildEventListener(listener)
             threadListeners[chat.id] = listener
         }
@@ -211,7 +223,7 @@ class ChatListActivity : AppCompatActivity() {
         val chats = ChatStorage.getSavedChats(this)
         chats.forEach { chat ->
             val listener = threadListeners[chat.id] ?: return@forEach
-            database.reference.child("chatThreads").child(chat.threadId ?: deriveThreadId(chat) ?: return@forEach)
+            database.reference.child("threads").child(chat.threadId ?: deriveThreadId(chat) ?: return@forEach)
                 .child("messages").removeEventListener(listener)
         }
         threadListeners.clear()

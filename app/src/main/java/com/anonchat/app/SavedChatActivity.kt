@@ -224,37 +224,33 @@ class SavedChatActivity : AppCompatActivity() {
 
     private fun loadLastActive() {
         val partnerUid = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId ?: return
-        if (!AuthActivity.TEST_MODE) {
-            FirebaseDatabase.getInstance().reference
-                .child("users").child(partnerUid).child("lastActive")
-                .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(s: DataSnapshot) {
-                        tvToolbarSubtitle.text = formatLastActive(s.getValue(Long::class.java))
-                    }
-                    override fun onCancelled(e: DatabaseError) {}
-                })
-        }
+            ?: chat.messages.firstOrNull { it.senderId != myId && it.senderId != "system" }?.senderId ?: return
+        FirebaseDatabase.getInstance().reference
+            .child("users").child(partnerUid).child("lastActive")
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(s: DataSnapshot) {
+                    tvToolbarSubtitle.text = formatLastActive(s.getValue(Long::class.java))
+                }
+                override fun onCancelled(e: DatabaseError) {}
+            })
     }
 
     private fun loadToolbarAvatar() {
         val partnerUid = chat.partnerAccountId
-            ?: chat.messages.firstOrNull { it.senderId != myId }?.senderId ?: return
-        if (!AuthActivity.TEST_MODE) {
-            val iv = findViewById<CircleImageView>(R.id.ivToolbarAvatar)
-            FirebaseDatabase.getInstance().reference
-                .child("users").child(partnerUid).child("avatar")
-                .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(s: DataSnapshot) {
-                        val data = s.getValue(String::class.java) ?: return
-                        try {
-                            val bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT)
-                            iv.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-                        } catch (_: Exception) {}
-                    }
-                    override fun onCancelled(e: DatabaseError) {}
-                })
-        }
+            ?: chat.messages.firstOrNull { it.senderId != myId && it.senderId != "system" }?.senderId ?: return
+        val iv = findViewById<CircleImageView>(R.id.ivToolbarAvatar)
+        FirebaseDatabase.getInstance().reference
+            .child("users").child(partnerUid).child("avatar")
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(s: DataSnapshot) {
+                    val data = s.getValue(String::class.java) ?: return
+                    try {
+                        val bytes = android.util.Base64.decode(data, android.util.Base64.DEFAULT)
+                        iv.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                    } catch (_: Exception) {}
+                }
+                override fun onCancelled(e: DatabaseError) {}
+            })
     }
 
     private fun showOverflowMenu(view: android.view.View) {
@@ -316,9 +312,13 @@ class SavedChatActivity : AppCompatActivity() {
             else -> ivAvatar.borderColor = resources.getColor(R.color.primary, theme)
         }
 
-        var fetchedAvatar: String? = null
+        // Derive partner uid — from stored accountId or from messages
         val partnerUid = chat.partnerAccountId
-        if (partnerUid != null && !AuthActivity.TEST_MODE) {
+            ?: chat.messages.firstOrNull { it.senderId != myId && it.senderId != "system" }?.senderId
+
+        var fetchedAvatar: String? = null
+        if (partnerUid != null) {
+            // Load avatar
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid).child("avatar")
                 .addListenerForSingleValueEvent(object : ValueEventListener {
@@ -333,7 +333,7 @@ class SavedChatActivity : AppCompatActivity() {
                     override fun onCancelled(e: DatabaseError) {}
                 })
 
-            // Also load fresh profile data
+            // Load fresh profile data
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid).child("profile")
                 .addListenerForSingleValueEvent(object : ValueEventListener {
