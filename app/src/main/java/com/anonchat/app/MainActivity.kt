@@ -380,32 +380,42 @@ class MainActivity : AppCompatActivity() {
         sessionsRef.child(sessionId).child("savedBy")
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    val savers = snapshot.children.map { it.key ?: "" }.filter { it.isNotEmpty() }
+                    val savers = snapshot.children.mapNotNull { it.key }.filter { it.isNotEmpty() }
                     val iSaved = savers.contains(userId)
                     val partnerSaved = savers.any { it != userId }
 
                     when {
-                        // Both saved — trigger local save if I haven't saved yet
                         iSaved && partnerSaved -> {
-                            // If chat not already saved locally, save it now
+                            // Both saved — save locally if not already done
                             val existing = ChatStorage.getSavedChats(this@MainActivity)
-                            val alreadySaved = existing.any { chat ->
-                                chat.messages.any { it.senderId == userId } &&
-                                    chat.messages.any { it.senderId != userId }
-                            }
+                            val threadId = listOf(userId, savers.first { it != userId }).sorted().joinToString("_")
+                            val alreadySaved = existing.any { it.threadId == threadId }
                             if (!alreadySaved) {
                                 triggerSave()
+                                addSystemMessageToChat("\u2705 Chat saved by both users")
                             }
-                            Toast.makeText(this@MainActivity, "Chat saved by both users ✓", Toast.LENGTH_SHORT).show()
                         }
-                        // Partner saved, I haven't yet
                         partnerSaved && !iSaved -> {
-                            Toast.makeText(this@MainActivity, "Partner saved the chat", Toast.LENGTH_SHORT).show()
+                            addSystemMessageToChat("\uD83D\uDCBE Partner has saved chat", green = true)
                         }
                     }
                 }
                 override fun onCancelled(e: DatabaseError) {}
             })
+    }
+
+    private fun addSystemMessageToChat(text: String, green: Boolean = false) {
+        val msg = ChatMessage(
+            id = UUID.randomUUID().toString(),
+            senderId = "system",
+            senderName = "system",
+            message = text,
+            timestamp = System.currentTimeMillis(),
+            status = if (green) "system_green" else "system"
+        )
+        messages.add(msg)
+        adapter.submitList(messages.toList())
+        recyclerMessages.scrollToPosition(messages.size - 1)
     }
 
     private fun triggerSave() {
@@ -550,14 +560,27 @@ class MainActivity : AppCompatActivity() {
             messages = messages.toList()
         )
         ChatStorage.saveChat(this, savedChat)
-        Toast.makeText(this, R.string.chat_saved, Toast.LENGTH_SHORT).show()
         btnSaveChat.visibility = View.GONE
 
-        // Notify partner that this user saved the chat, but keep the temporary session alive
-        // until one of the users leaves the chat.
-        currentSessionId?.let { sessionId ->
-            sessionsRef.child(sessionId).child("savedBy").child(userId).setValue(true)
-            sessionsRef.child(sessionId).child("active").setValue(true)
+        // Create the thread in Firebase so both users can chat later
+        if (threadId != null && !AuthActivity.TEST_MODE) {
+            val db = com.google.firebase.database.FirebaseDatabase.getInstance()
+            db.reference.child("threads").child(threadId).child("users").setValue(
+                mapOf(userId to true, partnerId to true)
+            )
+            // Copy existing messages to the thread so both sides have them
+            messages.filter { it.senderId != "system" }.forEach { msg ->
+                db.reference.child("threads").child(threadId).child("messages").push().setValue(
+                    mapOf(
+                        "id" to msg.id,
+                        "senderId" to msg.senderId,
+                        "senderName" to msg.senderName,
+                        "message" to msg.message,
+                        "timestamp" to msg.timestamp,
+                        "status" to "read"
+                    )
+                )
+            }
         }
     }
 

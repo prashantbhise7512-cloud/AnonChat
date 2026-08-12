@@ -3,7 +3,7 @@
     "users": {
       "$uid": {
         "profile": {
-          ".read": "auth != null && auth.uid === $uid",
+          ".read": "auth != null",
           ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.hasChildren(['displayName'])",
           "displayName": {

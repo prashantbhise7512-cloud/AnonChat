@@ -20,20 +20,24 @@ class MessageAdapter(
     companion object {
         private const val VIEW_TYPE_MINE = 1
         private const val VIEW_TYPE_OTHER = 2
+        private const val VIEW_TYPE_SYSTEM = 3
     }
 
     override fun getItemViewType(position: Int): Int {
-        return if (getItem(position).senderId == currentUserId) VIEW_TYPE_MINE else VIEW_TYPE_OTHER
+        val item = getItem(position)
+        return when {
+            item.senderId == "system" -> VIEW_TYPE_SYSTEM
+            item.senderId == currentUserId -> VIEW_TYPE_MINE
+            else -> VIEW_TYPE_OTHER
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
-        return if (viewType == VIEW_TYPE_MINE) {
-            val view = inflater.inflate(R.layout.item_message_mine, parent, false)
-            MineViewHolder(view)
-        } else {
-            val view = inflater.inflate(R.layout.item_message_other, parent, false)
-            OtherViewHolder(view)
+        return when (viewType) {
+            VIEW_TYPE_MINE -> MineViewHolder(inflater.inflate(R.layout.item_message_mine, parent, false))
+            VIEW_TYPE_SYSTEM -> SystemViewHolder(inflater.inflate(R.layout.item_message_system, parent, false))
+            else -> OtherViewHolder(inflater.inflate(R.layout.item_message_other, parent, false))
         }
     }
 
@@ -42,6 +46,7 @@ class MessageAdapter(
         when (holder) {
             is MineViewHolder -> holder.bind(message)
             is OtherViewHolder -> holder.bind(message)
+            is SystemViewHolder -> holder.bind(message)
         }
     }
 
@@ -80,6 +85,19 @@ class MessageAdapter(
             tvSender.visibility = android.view.View.GONE
             tvMessage.text = message.message
             tvTimestamp.text = formatTime(message.timestamp)
+        }
+    }
+
+    class SystemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val tvSystemMessage: TextView = itemView.findViewById(R.id.tvSystemMessage)
+
+        fun bind(message: ChatMessage) {
+            tvSystemMessage.text = message.message
+            if (message.status == "system_green") {
+                tvSystemMessage.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
+            } else {
+                tvSystemMessage.setTextColor(android.graphics.Color.parseColor("#666666"))
+            }
         }
     }
 

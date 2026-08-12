@@ -6,6 +6,6 @@
         android:title="Chats" />
     <item
         android:id="@+id/nav_profile"
-        android:icon="@drawable/ic_default_avatar"
+        android:icon="@drawable/ic_person"
         android:title="Profile" />
 </menu>

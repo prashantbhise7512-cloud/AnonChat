@@ -1074,12 +1074,31 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
             if (iSaved && partnerSaved) {
                 // Both agreed — save locally
                 performSaveChat();
-                addSystemMessage("Chat saved by both users ✓");
+                addSystemMessage("✅ Chat saved by both users");
             } else if (partnerSaved && !iSaved) {
-                addSystemMessage("Partner wants to save this chat. Tap Save to confirm.");
+                addGreenSystemMessage("💾 Partner has saved chat");
                 btnSaveChat.style.display = "";  // Re-show save button so user can confirm
             }
         });
+    }
+
+    function addGreenSystemMessage(text) {
+        const row = document.createElement("div");
+        row.className = "message-row";
+        row.style.alignSelf = "center";
+        row.style.maxWidth = "100%";
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+        bubble.style.background = "#E8F5E9";
+        bubble.style.color = "#2E7D32";
+        bubble.style.borderRadius = "12px";
+        bubble.style.fontSize = "0.85rem";
+        bubble.style.textAlign = "center";
+        bubble.style.fontWeight = "600";
+        bubble.textContent = text;
+        row.appendChild(bubble);
+        messagesContainer.appendChild(row);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
     // === BROADCAST CHANNEL LISTENER ===
