@@ -3,8 +3,8 @@
     "users": {
       "$uid": {
         "profile": {
-          ".read": "auth != null",
-          ".write": "auth != null && auth.uid === $uid",
+          ".read": true,
+          ".write": true,
           ".validate": "newData.hasChildren(['displayName'])",
           "displayName": {
             ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 50"
@@ -23,24 +23,24 @@
           }
         },
         "avatar": {
-          ".read": "auth != null",
-          ".write": "auth != null && auth.uid === $uid",
+          ".read": true,
+          ".write": true,
           ".validate": "newData.isString() && newData.val().length <= 200000"
         },
         "lastActive": {
-          ".read": "auth != null",
-          ".write": "auth != null && auth.uid === $uid",
+          ".read": true,
+          ".write": true,
           ".validate": "newData.isNumber()"
         }
       }
     },
     "queue": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     "sessions": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       "$sessionId": {
         "messages": {
           ".indexOn": ["timestamp"]
@@ -48,13 +48,13 @@
       }
     },
     "presence": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     "threads": {
       "$threadId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
+        ".read": true,
+        ".write": true,
         "messages": {
           ".indexOn": ["timestamp"]
         }

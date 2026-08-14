@@ -29,6 +29,9 @@ class MessageNotificationService : Service() {
         const val FOREGROUND_NOTIFICATION_ID = 1
         private var isRunning = false
 
+        /** Set by SavedChatActivity when it's open, cleared when closed */
+        var activeChatId: String? = null
+
         fun start(context: Context) {
             if (isRunning) return
             val intent = Intent(context, MessageNotificationService::class.java)
@@ -136,8 +139,10 @@ class MessageNotificationService : Service() {
                     val msg = ChatMessage(msgId, senderId, senderName, text, ts, "delivered")
                     ChatStorage.appendMessageToChat(this@MessageNotificationService, chat.id, msg)
 
-                    // Show notification
-                    showMessageNotification(chat.id, senderName, text)
+                    // Show notification only if user is NOT in this chat
+                    if (activeChatId != chat.id) {
+                        showMessageNotification(chat.id, senderName, text)
+                    }
                 }
                 override fun onChildChanged(s: DataSnapshot, p: String?) {}
                 override fun onChildRemoved(s: DataSnapshot) {}

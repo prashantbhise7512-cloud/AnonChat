@@ -46,6 +46,9 @@ class SavedChatActivity : AppCompatActivity() {
 
         chatId = intent.getStringExtra("CHAT_ID") ?: run { finish(); return }
 
+        // Tell the notification service we're viewing this chat — suppress notifications
+        MessageNotificationService.activeChatId = chatId
+
         // Mark as read
         getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
             .edit().putLong("read_time_$chatId", System.currentTimeMillis()).apply()
@@ -290,6 +293,7 @@ class SavedChatActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        MessageNotificationService.activeChatId = null
         threadListener?.let { threadRef?.removeEventListener(it) }
     }
 
