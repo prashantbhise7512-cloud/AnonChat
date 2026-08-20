@@ -137,6 +137,7 @@ class SavedChatActivity : AppCompatActivity() {
             // Write to Firebase /threads/{threadId}/messages
             val tid = getThreadId()
             if (tid != null) {
+                UserDatabase.registerUserThread(myId, chat.partnerAccountId, tid)
                 FirebaseDatabase.getInstance().reference
                     .child("threads").child(tid).child("messages")
                     .push().setValue(mapOf(
@@ -171,6 +172,8 @@ class SavedChatActivity : AppCompatActivity() {
         } else {
             return null
         }
+
+        UserDatabase.registerUserThread(myId, chat.partnerAccountId, threadId)
 
         // Backfill threadId into local storage
         chat = chat.copy(threadId = threadId)
@@ -354,14 +357,23 @@ class SavedChatActivity : AppCompatActivity() {
 
             // Load fresh profile data
             FirebaseDatabase.getInstance().reference
-                .child("users").child(partnerUid).child("profile")
+                .child("users").child(partnerUid)
                 .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(s: DataSnapshot) {
-                        tvName.text = s.child("displayName").getValue(String::class.java) ?: "AnnoUser"
-                        tvGender.text = s.child("gender").getValue(String::class.java) ?: "Not specified"
-                        val age = s.child("age").getValue(Long::class.java)
-                        tvAge.text = if (age != null) age.toString() else "Not specified"
-                        tvCity.text = s.child("city").getValue(String::class.java) ?: "Not specified"
+                        val prof = s.child("profile")
+                        val name = prof.child("displayName").getValue(String::class.java)
+                            ?: s.child("displayName").getValue(String::class.java)
+                        val gender = prof.child("gender").getValue(String::class.java)
+                            ?: s.child("gender").getValue(String::class.java)
+                        val age = prof.child("age").getValue(Long::class.java)
+                            ?: s.child("age").getValue(Long::class.java)
+                        val city = prof.child("city").getValue(String::class.java)
+                            ?: s.child("city").getValue(String::class.java)
+
+                        if (!name.isNullOrEmpty()) tvName.text = name
+                        if (!gender.isNullOrEmpty()) tvGender.text = gender
+                        if (age != null && age >= 0) tvAge.text = "$age yrs"
+                        if (!city.isNullOrEmpty()) tvCity.text = city
                     }
                     override fun onCancelled(e: DatabaseError) {}
                 })
@@ -395,5 +407,26 @@ class SavedChatActivity : AppCompatActivity() {
             cal.get(java.util.Calendar.DAY_OF_YEAR) == yesterday.get(java.util.Calendar.DAY_OF_YEAR))
             "last seen yesterday"
         else "last seen ${java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date(timestamp))}"
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::chat.isInitialized) {
+            MessageNotificationService.activeChatId = chat.id
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::chat.isInitialized && MessageNotificationService.activeChatId == chat.id) {
+            MessageNotificationService.activeChatId = null
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::chat.isInitialized && MessageNotificationService.activeChatId == chat.id) {
+            MessageNotificationService.activeChatId = null
+        }
     }
 }

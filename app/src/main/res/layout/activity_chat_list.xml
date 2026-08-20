@@ -44,8 +44,8 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:paddingHorizontal="16dp"
-                    android:paddingTop="12dp"
-                    android:paddingBottom="4dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="2dp"
                     android:gravity="end">
 
                     <TextView
@@ -54,7 +54,7 @@
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_identity_badge"
                         android:paddingHorizontal="10dp"
-                        android:paddingVertical="4dp"
+                        android:paddingVertical="3dp"
                         android:textColor="@color/white"
                         android:textSize="11sp"
                         tools:text="SwiftFox472" />
@@ -66,7 +66,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
                     android:layout_marginHorizontal="16dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="2dp"
                     android:text="@string/enter_chat_room"
                     android:textColor="@color/white"
                     android:textSize="16sp"

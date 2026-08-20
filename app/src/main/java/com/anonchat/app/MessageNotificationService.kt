@@ -11,15 +11,17 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.anonchat.app.model.ChatMessage
+import com.anonchat.app.model.SavedChat
 import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 
 /**
- * Foreground service that listens to all saved chat threads in Firebase
+ * Foreground service that listens to all user chat threads in Firebase
  * and shows notifications when new messages arrive from other users.
- * No Cloud Functions or Blaze plan needed.
+ * Automatically restores deleted chats if a new message arrives from a partner.
  */
 class MessageNotificationService : Service() {
 
@@ -31,6 +33,12 @@ class MessageNotificationService : Service() {
 
         /** Set by SavedChatActivity when it's open, cleared when closed */
         var activeChatId: String? = null
+
+        /** Set by MainActivity when connected to a live chat thread */
+        var activeThreadId: String? = null
+
+        /** Set true while user is active on the live chat screen */
+        var isLiveChatActive: Boolean = false
 
         fun start(context: Context) {
             if (isRunning) return
@@ -48,6 +56,7 @@ class MessageNotificationService : Service() {
     }
 
     private val listeners = mutableMapOf<String, ChildEventListener>()
+    private var userThreadsListener: ChildEventListener? = null
     private var notificationId = 100
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -106,56 +115,135 @@ class MessageNotificationService : Service() {
 
     private fun startListening() {
         val currentUserId = TestSession.currentUserId(this) ?: return
-        val chats = ChatStorage.getSavedChats(this)
 
+        // 1. Listen to /user_threads/$currentUserId so deleted chats still receive new messages
+        listenToUserThreads(currentUserId)
+
+        // 2. Listen to all local saved chats
+        val chats = ChatStorage.getSavedChats(this)
         chats.forEach { chat ->
             val threadId = chat.threadId ?: deriveThreadId(chat, currentUserId) ?: return@forEach
-            if (listeners.containsKey(threadId)) return@forEach
-
-            val ref = FirebaseDatabase.getInstance().reference
-                .child("threads").child(threadId).child("messages")
-
-            val listener = object : ChildEventListener {
-                override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
-                    val senderId = snapshot.child("senderId").getValue(String::class.java) ?: return
-                    if (senderId == currentUserId) return // own message
-
-                    val msgId = snapshot.child("id").getValue(String::class.java) ?: return
-                    val senderName = snapshot.child("senderName").getValue(String::class.java) ?: "Someone"
-                    val text = snapshot.child("message").getValue(String::class.java) ?: ""
-                    val ts = snapshot.child("timestamp").getValue(Long::class.java) ?: return
-
-                    // Check if already seen
-                    val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-                    val lastRead = prefs.getLong("read_time_${chat.id}", 0L)
-                    if (ts <= lastRead) return
-
-                    // Check if already in local messages
-                    val existingChat = ChatStorage.getSavedChats(this@MessageNotificationService)
-                        .find { it.id == chat.id }
-                    if (existingChat?.messages?.any { it.id == msgId } == true) return
-
-                    // Save message locally
-                    val msg = ChatMessage(msgId, senderId, senderName, text, ts, "delivered")
-                    ChatStorage.appendMessageToChat(this@MessageNotificationService, chat.id, msg)
-
-                    // Show notification only if user is NOT in this chat
-                    if (activeChatId != chat.id) {
-                        showMessageNotification(chat.id, senderName, text)
-                    }
-                }
-                override fun onChildChanged(s: DataSnapshot, p: String?) {}
-                override fun onChildRemoved(s: DataSnapshot) {}
-                override fun onChildMoved(s: DataSnapshot, p: String?) {}
-                override fun onCancelled(e: DatabaseError) {}
-            }
-
-            ref.orderByChild("timestamp").addChildEventListener(listener)
-            listeners[threadId] = listener
+            UserDatabase.registerUserThread(currentUserId, chat.partnerAccountId, threadId)
+            attachThreadListener(threadId, currentUserId)
         }
     }
 
+    private fun listenToUserThreads(currentUserId: String) {
+        if (userThreadsListener != null) return
+        val db = FirebaseDatabase.getInstance().reference.child("user_threads").child(currentUserId)
+        userThreadsListener = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
+                val threadId = snapshot.key ?: return
+                attachThreadListener(threadId, currentUserId)
+            }
+            override fun onChildChanged(s: DataSnapshot, p: String?) {}
+            override fun onChildRemoved(s: DataSnapshot) {}
+            override fun onChildMoved(s: DataSnapshot, p: String?) {}
+            override fun onCancelled(e: DatabaseError) {}
+        }
+        db.addChildEventListener(userThreadsListener!!)
+    }
+
+    private fun attachThreadListener(threadId: String, currentUserId: String) {
+        if (listeners.containsKey(threadId)) return
+
+        val ref = FirebaseDatabase.getInstance().reference
+            .child("threads").child(threadId).child("messages")
+
+        val listener = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
+                val senderId = snapshot.child("senderId").getValue(String::class.java) ?: return
+                if (senderId == currentUserId) return // own message
+
+                val msgId = snapshot.child("id").getValue(String::class.java) ?: return
+                val senderName = snapshot.child("senderName").getValue(String::class.java) ?: "Someone"
+                val text = snapshot.child("message").getValue(String::class.java) ?: ""
+                val ts = snapshot.child("timestamp").getValue(Long::class.java) ?: System.currentTimeMillis()
+
+                // Keep thread registered under /user_threads/$currentUserId
+                UserDatabase.registerUserThread(currentUserId, senderId, threadId)
+
+                var existingChat = ChatStorage.getSavedChats(this@MessageNotificationService)
+                    .find { it.threadId == threadId || (it.partnerAccountId == senderId && !it.partnerAccountId.isNullOrBlank()) }
+
+                val targetChatId: String
+                val msg = ChatMessage(msgId, senderId, senderName, text, ts, "delivered")
+
+                if (existingChat != null) {
+                    targetChatId = existingChat.id
+                    if (existingChat.messages.none { it.id == msgId }) {
+                        ChatStorage.appendMessageToChat(this@MessageNotificationService, targetChatId, msg)
+                    }
+                } else {
+                    // Chat was DELETED or missing locally — AUTO-RESTORE IT!
+                    targetChatId = java.util.UUID.randomUUID().toString()
+                    val myName = TestSession.cachedDisplayName(this@MessageNotificationService, currentUserId) ?: "AnnoUser"
+                    val restoredChat = SavedChat(
+                        id = targetChatId,
+                        savedAt = ts,
+                        userName = myName,
+                        partnerName = senderName,
+                        partnerAccountId = senderId,
+                        threadId = threadId,
+                        partnerGender = null,
+                        partnerAge = null,
+                        partnerCity = null,
+                        partnerAvatar = null,
+                        messages = listOf(msg)
+                    )
+                    ChatStorage.saveChat(this@MessageNotificationService, restoredChat)
+
+                    // Asynchronously hydrate partner profile details from /users/$senderId
+                    FirebaseDatabase.getInstance().reference.child("users").child(senderId)
+                        .addListenerForSingleValueEvent(object : ValueEventListener {
+                            override fun onDataChange(userSnap: DataSnapshot) {
+                                val profileSnap = userSnap.child("profile")
+                                val dbName = profileSnap.child("displayName").getValue(String::class.java) ?: senderName
+                                val gender = profileSnap.child("gender").getValue(String::class.java)
+                                val age = profileSnap.child("age").getValue(Long::class.java)?.toInt()
+                                val city = profileSnap.child("city").getValue(String::class.java)
+                                val avatar = userSnap.child("avatar").getValue(String::class.java)
+                                val updated = restoredChat.copy(
+                                    partnerName = dbName,
+                                    partnerGender = gender,
+                                    partnerAge = age,
+                                    partnerCity = city,
+                                    partnerAvatar = avatar
+                                )
+                                ChatStorage.updateSavedChat(this@MessageNotificationService, updated)
+                            }
+                            override fun onCancelled(error: DatabaseError) {}
+                        })
+                }
+
+                // Show notification ONLY if user is NOT currently in this chat / thread or active live chat screen
+                val isUserInThisChat = (activeChatId != null && activeChatId == targetChatId)
+                        || (activeThreadId != null && activeThreadId == threadId)
+                        || isLiveChatActive
+
+                if (!isUserInThisChat) {
+                    showMessageNotification(targetChatId, senderName, text)
+                }
+            }
+
+            override fun onChildChanged(s: DataSnapshot, p: String?) {}
+            override fun onChildRemoved(s: DataSnapshot) {}
+            override fun onChildMoved(s: DataSnapshot, p: String?) {}
+            override fun onCancelled(e: DatabaseError) {}
+        }
+
+        ref.orderByChild("timestamp").addChildEventListener(listener)
+        listeners[threadId] = listener
+    }
+
     private fun stopAllListeners() {
+        val currentUserId = TestSession.currentUserId(this)
+        if (currentUserId != null && userThreadsListener != null) {
+            FirebaseDatabase.getInstance().reference
+                .child("user_threads").child(currentUserId)
+                .removeEventListener(userThreadsListener!!)
+            userThreadsListener = null
+        }
         listeners.forEach { (threadId, listener) ->
             FirebaseDatabase.getInstance().reference
                 .child("threads").child(threadId).child("messages")
@@ -186,7 +274,7 @@ class MessageNotificationService : Service() {
         nm.notify(notificationId++, notification)
     }
 
-    private fun deriveThreadId(chat: com.anonchat.app.model.SavedChat, currentUserId: String): String? {
+    private fun deriveThreadId(chat: SavedChat, currentUserId: String): String? {
         val partnerId = chat.partnerAccountId
             ?: chat.messages.firstOrNull { it.senderId != currentUserId }?.senderId
             ?: return null

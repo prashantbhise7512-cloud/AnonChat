@@ -175,18 +175,25 @@ class ChatListActivity : AppCompatActivity() {
     private fun loadSavedChats() {
         ChatStorage.backfillThreadIds(this)
 
-        val chats = ChatStorage.getSavedChats(this)
-            .sortedByDescending { chat ->
+        fun renderList(list: List<com.anonchat.app.model.SavedChat>) {
+            val sorted = list.sortedByDescending { chat ->
                 chat.messages.lastOrNull()?.timestamp ?: chat.savedAt
             }
-        adapter.updateChats(chats)
+            adapter.updateChats(sorted)
 
-        if (chats.isEmpty()) {
-            emptyState.visibility = View.VISIBLE
-            recyclerSavedChats.visibility = View.GONE
-        } else {
-            emptyState.visibility = View.GONE
-            recyclerSavedChats.visibility = View.VISIBLE
+            if (sorted.isEmpty()) {
+                emptyState.visibility = View.VISIBLE
+                recyclerSavedChats.visibility = View.GONE
+            } else {
+                emptyState.visibility = View.GONE
+                recyclerSavedChats.visibility = View.VISIBLE
+            }
+        }
+
+        renderList(ChatStorage.getSavedChats(this))
+
+        ChatStorage.syncFromCloud(this) { cloudChats ->
+            renderList(cloudChats)
         }
     }
 

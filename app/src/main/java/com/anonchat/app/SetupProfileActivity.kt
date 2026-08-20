@@ -88,38 +88,23 @@ class SetupProfileActivity : AppCompatActivity() {
             }
 
             val uid = TestSession.currentUserId(this) ?: "unknown"
-            val db = FirebaseDatabase.getInstance()
+            val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+            val phoneNumber = prefs.getString("current_phone_number", "") ?: ""
 
-            // Save profile to Firebase
-            val profileData = mutableMapOf<String, Any>("displayName" to name)
-            if (gender != null) profileData["gender"] = gender
-            if (age != null) profileData["age"] = age
-            if (city.isNotEmpty()) profileData["city"] = city
-
-            db.reference.child("users").child(uid).child("profile").setValue(profileData)
-
-            // Save avatar to Firebase if set
-            avatarBase64?.let { avatar ->
-                db.reference.child("users").child(uid).child("avatar").setValue(avatar)
-            }
+            // Save user info linked to unique phone number
+            UserDatabase.saveUser(
+                context = this,
+                uid = uid,
+                phoneNumber = phoneNumber,
+                displayName = name,
+                gender = gender,
+                age = age,
+                city = city.ifEmpty { null },
+                avatarBase64 = avatarBase64
+            )
 
             // Cache display name locally
             TestSession.cacheDisplayName(this, uid, name)
-
-            // Save full profile JSON locally
-            val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-            val json = org.json.JSONObject().apply {
-                put("displayName", name)
-                if (gender != null) put("gender", gender) else put("gender", org.json.JSONObject.NULL)
-                if (age != null) put("age", age) else put("age", org.json.JSONObject.NULL)
-                if (city.isNotEmpty()) put("city", city) else put("city", org.json.JSONObject.NULL)
-            }.toString()
-            prefs.edit().putString("profile_$uid", json).apply()
-
-            // Save avatar locally if set
-            avatarBase64?.let { avatar ->
-                prefs.edit().putString("avatar_$uid", avatar).apply()
-            }
 
             Toast.makeText(this, "Profile saved!", Toast.LENGTH_SHORT).show()
             goToChatList()

@@ -483,6 +483,7 @@ class MainActivity : AppCompatActivity() {
         msgRef.setValue(chatMessage)
 
         activeThreadId?.let { threadId ->
+            UserDatabase.registerUserThread(userId, currentPartnerId, threadId)
             FirebaseDatabase.getInstance().reference
                 .child("threads").child(threadId).child("messages")
                 .push().setValue(chatMessage)
@@ -516,27 +517,39 @@ class MainActivity : AppCompatActivity() {
         val partnerId = currentPartnerId
         if (!partnerId.isNullOrBlank()) {
             val cachedAvatar = TestSession.cachedProfileAvatar(this, partnerId)
+                ?: getSharedPreferences("anonchat_prefs", MODE_PRIVATE).getString("avatar_$partnerId", null)
             if (!cachedAvatar.isNullOrEmpty()) {
                 try {
                     val bytes = android.util.Base64.decode(cachedAvatar, android.util.Base64.DEFAULT)
-                    ivMainPartnerAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bitmap != null) ivMainPartnerAvatar.setImageBitmap(bitmap)
                 } catch (_: Exception) {}
-            } else if (!AuthActivity.TEST_MODE) {
-                FirebaseDatabase.getInstance().reference
-                    .child("users").child(partnerId).child("avatar")
-                    .addListenerForSingleValueEvent(object : ValueEventListener {
-                        override fun onDataChange(snapshot: DataSnapshot) {
-                            val avatarData = snapshot.getValue(String::class.java)
-                            if (!avatarData.isNullOrEmpty()) {
-                                try {
-                                    val bytes = android.util.Base64.decode(avatarData, android.util.Base64.DEFAULT)
-                                    ivMainPartnerAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-                                } catch (_: Exception) {}
-                            }
-                        }
-                        override fun onCancelled(error: DatabaseError) {}
-                    })
             }
+
+            FirebaseDatabase.getInstance().reference
+                .child("users").child(partnerId)
+                .addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        val profileSnap = snapshot.child("profile")
+                        val dbName = profileSnap.child("displayName").getValue(String::class.java)
+                            ?: snapshot.child("displayName").getValue(String::class.java)
+                        if (!dbName.isNullOrEmpty()) {
+                            currentPartnerName = dbName
+                            tvMainTitle.text = dbName
+                        }
+
+                        val avatarData = snapshot.child("avatar").getValue(String::class.java)
+                            ?: profileSnap.child("avatar").getValue(String::class.java)
+                        if (!avatarData.isNullOrEmpty()) {
+                            try {
+                                val bytes = android.util.Base64.decode(avatarData, android.util.Base64.DEFAULT)
+                                val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                if (bitmap != null) ivMainPartnerAvatar.setImageBitmap(bitmap)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    override fun onCancelled(error: DatabaseError) {}
+                })
         }
 
         onlineIndicator.visibility = View.VISIBLE
@@ -614,6 +627,7 @@ class MainActivity : AppCompatActivity() {
 
         // Create the thread in Firebase so both users can chat later
         if (threadId != null && !AuthActivity.TEST_MODE) {
+            UserDatabase.registerUserThread(userId, partnerId, threadId)
             val db = com.google.firebase.database.FirebaseDatabase.getInstance()
             db.reference.child("threads").child(threadId).child("users").setValue(
                 mapOf(userId to true, partnerId to true)
@@ -702,8 +716,22 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) { null }
     }
 
+    override fun onResume() {
+        super.onResume()
+        MessageNotificationService.isLiveChatActive = true
+        activeThreadId?.let { MessageNotificationService.activeThreadId = it }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        MessageNotificationService.isLiveChatActive = false
+        MessageNotificationService.activeThreadId = null
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        MessageNotificationService.isLiveChatActive = false
+        MessageNotificationService.activeThreadId = null
         disconnectFromCurrent()
     }
 }

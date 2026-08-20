@@ -525,18 +525,52 @@ class AuthActivity : AppCompatActivity() {
         if (hasNavigated || isFinishing) return
         hasNavigated = true
 
-        // Check if profile setup is already done (returning user)
-        val setupDone = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-            .getBoolean("profile_setup_done", false)
+        val phoneNumber = getFullPhoneNumber()
+        val currentUid = auth.currentUser?.uid ?: TestSession.uid(this) ?: java.util.UUID.randomUUID().toString()
 
-        val intent = if (setupDone) {
-            Intent(this, ChatListActivity::class.java)
-        } else {
-            Intent(this, SetupProfileActivity::class.java)
+        UserDatabase.findUserByPhone(this, phoneNumber) { foundUid, masterUserRecord ->
+            val activeUid = foundUid ?: currentUid
+            TestSession.setUserId(this, activeUid)
+
+            if (masterUserRecord != null) {
+                @Suppress("UNCHECKED_CAST")
+                val profileMap = masterUserRecord["profile"] as? Map<String, Any>
+                val name = masterUserRecord["displayName"] as? String
+                    ?: profileMap?.get("displayName") as? String
+                    ?: "AnnoUser"
+                val gender = masterUserRecord["gender"] as? String
+                    ?: profileMap?.get("gender") as? String
+                val age = (masterUserRecord["age"] as? Number)?.toInt()
+                    ?: (profileMap?.get("age") as? Number)?.toInt()
+                val city = masterUserRecord["city"] as? String
+                    ?: profileMap?.get("city") as? String
+                val avatar = masterUserRecord["avatar"] as? String
+
+                UserDatabase.saveUser(this, activeUid, phoneNumber, name, gender, age, city, avatar)
+
+                getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+                    .edit().putBoolean("profile_setup_done", true).apply()
+
+                val intent = Intent(this, ChatListActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            } else {
+                UserDatabase.saveUser(this, activeUid, phoneNumber, "AnnoUser")
+
+                val setupDone = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+                    .getBoolean("profile_setup_done", false)
+
+                val intent = if (setupDone) {
+                    Intent(this, ChatListActivity::class.java)
+                } else {
+                    Intent(this, SetupProfileActivity::class.java)
+                }
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            }
         }
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
     }
 
     // --- Lifecycle ---

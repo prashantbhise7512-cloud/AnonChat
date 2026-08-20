@@ -46,7 +46,7 @@ class PartnerProfileActivity : AppCompatActivity() {
 
         tvName.text = name
         tvGender.text = gender
-        tvAge.text = if (age >= 0) age.toString() else "Not specified"
+        tvAge.text = if (age >= 0) "$age yrs" else "Not specified"
         tvCity.text = city
 
         ivAvatar.setImageResource(R.drawable.ic_default_avatar)
@@ -54,7 +54,7 @@ class PartnerProfileActivity : AppCompatActivity() {
             try {
                 val bytes = Base64.decode(avatarBase64, Base64.DEFAULT)
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                ivAvatar.setImageBitmap(bitmap)
+                if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
             } catch (_: Exception) {}
         }
 
@@ -88,91 +88,73 @@ class PartnerProfileActivity : AppCompatActivity() {
         val fallbackCity = intent.getStringExtra(EXTRA_PARTNER_CITY).orEmpty().ifEmpty { "Not specified" }
         val fallbackAvatar = intent.getStringExtra(EXTRA_PARTNER_AVATAR_BASE64)
 
-        fun applyFallback() {
-            tvName.text = fallbackName
-            tvGender.text = fallbackGender
-            tvAge.text = if (fallbackAge >= 0) fallbackAge.toString() else "Not specified"
-            tvCity.text = fallbackCity
-            currentAvatarBase64 = fallbackAvatar
-            ivAvatar.setImageResource(R.drawable.ic_default_avatar)
-            if (!fallbackAvatar.isNullOrEmpty()) {
-                try {
-                    val bytes = Base64.decode(fallbackAvatar, Base64.DEFAULT)
-                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    ivAvatar.setImageBitmap(bitmap)
-                } catch (_: Exception) {}
-            }
-        }
-
         val cachedName = TestSession.cachedProfileDisplayName(this, partnerAccountId)
         val cachedGender = TestSession.cachedProfileGender(this, partnerAccountId)
         val cachedAge = TestSession.cachedProfileAge(this, partnerAccountId)
         val cachedCity = TestSession.cachedProfileCity(this, partnerAccountId)
         val cachedAvatar = TestSession.cachedProfileAvatar(this, partnerAccountId)
-        if (!cachedName.isNullOrBlank() || !cachedGender.isNullOrBlank() || cachedAge != null || !cachedCity.isNullOrBlank() || !cachedAvatar.isNullOrBlank()) {
-            tvName.text = cachedName ?: fallbackName
-            tvGender.text = cachedGender ?: fallbackGender
-            tvAge.text = if (cachedAge != null && cachedAge >= 0) cachedAge.toString() else if (fallbackAge >= 0) fallbackAge.toString() else "Not specified"
-            tvCity.text = cachedCity ?: fallbackCity
-            currentAvatarBase64 = cachedAvatar ?: fallbackAvatar
-            ivAvatar.setImageResource(R.drawable.ic_default_avatar)
-            if (!currentAvatarBase64.isNullOrEmpty()) {
-                try {
-                    val bytes = Base64.decode(currentAvatarBase64, Base64.DEFAULT)
-                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    ivAvatar.setImageBitmap(bitmap)
-                } catch (_: Exception) {}
-            }
+            ?: getSharedPreferences("anonchat_prefs", MODE_PRIVATE).getString("avatar_$partnerAccountId", null)
+
+        val initialName = cachedName ?: fallbackName
+        val initialGender = cachedGender ?: fallbackGender
+        val initialAge = if (cachedAge != null && cachedAge >= 0) cachedAge else fallbackAge
+        val initialCity = cachedCity ?: fallbackCity
+        val initialAvatar = cachedAvatar ?: fallbackAvatar
+
+        tvName.text = initialName
+        tvGender.text = initialGender
+        tvAge.text = if (initialAge >= 0) "$initialAge yrs" else "Not specified"
+        tvCity.text = initialCity
+
+        if (!initialAvatar.isNullOrEmpty()) {
+            currentAvatarBase64 = initialAvatar
+            try {
+                val bytes = Base64.decode(initialAvatar, Base64.DEFAULT)
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
+            } catch (_: Exception) {}
         }
 
-        if (!AuthActivity.TEST_MODE) {
-            FirebaseDatabase.getInstance().reference
-                .child("users").child(partnerAccountId)
-                .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        val profile = snapshot.child("profile")
-                        val profileName = profile.child("displayName").getValue(String::class.java)
-                        val profileGender = profile.child("gender").getValue(String::class.java)
-                        val profileAge = profile.child("age").getValue(Long::class.java)?.toInt()
-                        val profileCity = profile.child("city").getValue(String::class.java)
-                        val profileAvatar = snapshot.child("avatar").getValue(String::class.java)
+        // Unconditionally fetch real profile & avatar from Firebase Realtime Database node /users/$partnerAccountId
+        FirebaseDatabase.getInstance().reference
+            .child("users").child(partnerAccountId)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (!snapshot.exists()) return
 
-                        val fetchedName = profileName?.takeIf { it.isNotBlank() }
-                            ?: snapshot.child("displayName").getValue(String::class.java)
-                            ?: cachedName ?: fallbackName
-                        val fetchedGender = profileGender?.takeIf { it.isNotBlank() }
-                            ?: snapshot.child("gender").getValue(String::class.java)
-                            ?: cachedGender ?: fallbackGender
-                        val fetchedAge = profileAge ?: snapshot.child("age").getValue(Long::class.java)?.toInt() ?: cachedAge
-                        val fetchedCity = profileCity?.takeIf { it.isNotBlank() }
-                            ?: snapshot.child("city").getValue(String::class.java)
-                            ?: cachedCity ?: fallbackCity
-                        val fetchedAvatar = profileAvatar
-                            ?: snapshot.child("avatar").getValue(String::class.java)
-                            ?: cachedAvatar ?: fallbackAvatar
+                    val profileSnap = snapshot.child("profile")
+                    val dbName = profileSnap.child("displayName").getValue(String::class.java)
+                        ?: snapshot.child("displayName").getValue(String::class.java)
+                        ?: snapshot.child("userName").getValue(String::class.java)
 
-                        tvName.text = fetchedName
-                        tvGender.text = fetchedGender
-                        tvAge.text = if (fetchedAge != null && fetchedAge >= 0) fetchedAge.toString() else "Not specified"
-                        tvCity.text = fetchedCity
+                    val dbGender = profileSnap.child("gender").getValue(String::class.java)
+                        ?: snapshot.child("gender").getValue(String::class.java)
 
-                        currentAvatarBase64 = fetchedAvatar
-                        ivAvatar.setImageResource(R.drawable.ic_default_avatar)
-                        if (!fetchedAvatar.isNullOrEmpty()) {
-                            try {
-                                val bytes = Base64.decode(fetchedAvatar, Base64.DEFAULT)
-                                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                ivAvatar.setImageBitmap(bitmap)
-                            } catch (_: Exception) {}
-                        }
+                    val dbAge = profileSnap.child("age").getValue(Long::class.java)?.toInt()
+                        ?: snapshot.child("age").getValue(Long::class.java)?.toInt()
+
+                    val dbCity = profileSnap.child("city").getValue(String::class.java)
+                        ?: snapshot.child("city").getValue(String::class.java)
+
+                    val dbAvatar = snapshot.child("avatar").getValue(String::class.java)
+                        ?: profileSnap.child("avatar").getValue(String::class.java)
+
+                    if (!dbName.isNullOrEmpty()) tvName.text = dbName
+                    if (!dbGender.isNullOrEmpty()) tvGender.text = dbGender
+                    if (dbAge != null && dbAge >= 0) tvAge.text = "$dbAge yrs"
+                    if (!dbCity.isNullOrEmpty()) tvCity.text = dbCity
+
+                    if (!dbAvatar.isNullOrEmpty()) {
+                        currentAvatarBase64 = dbAvatar
+                        try {
+                            val bytes = Base64.decode(dbAvatar, Base64.DEFAULT)
+                            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
+                        } catch (_: Exception) {}
                     }
+                }
 
-                    override fun onCancelled(error: DatabaseError) {
-                        applyFallback()
-                    }
-                })
-        } else {
-            applyFallback()
-        }
+                override fun onCancelled(error: DatabaseError) {}
+            })
     }
 }

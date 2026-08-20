@@ -285,75 +285,87 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     // --- Load Profile ---
-
     private fun loadProfile() {
         val uid = TestSession.currentUserId(this) ?: return
 
         showLoading(true)
 
-        val profileRef = database.reference.child("users").child(uid).child("profile")
-        profileRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        // 1. Immediately populate from local cache (TestSession & SharedPreferences profile_$uid)
+        val cachedName = TestSession.cachedProfileDisplayName(this, uid)
+            ?: TestSession.cachedDisplayName(this, uid)
+        val cachedGender = TestSession.cachedProfileGender(this, uid)
+        val cachedAge = TestSession.cachedProfileAge(this, uid)
+        val cachedCity = TestSession.cachedProfileCity(this, uid)
+        val cachedAvatar = TestSession.cachedProfileAvatar(this, uid)
+            ?: getSharedPreferences("anonchat_prefs", MODE_PRIVATE).getString("avatar_$uid", null)
+
+        if (!cachedName.isNullOrEmpty()) {
+            etDisplayName.setText(cachedName)
+        }
+        if (cachedGender != null) {
+            val genderIndex = genderOptions.indexOf(cachedGender)
+            if (genderIndex >= 0) spinnerGender.setSelection(genderIndex)
+        }
+        if (cachedAge != null) {
+            etAge.setText(cachedAge.toString())
+        }
+        if (cachedCity != null) {
+            etCity.setText(cachedCity)
+        }
+        if (!cachedAvatar.isNullOrEmpty()) {
+            try {
+                val bytes = Base64.decode(cachedAvatar, Base64.DEFAULT)
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                if (bitmap != null) ivProfilePic.setImageBitmap(bitmap)
+            } catch (_: Exception) {}
+        }
+
+        updateViewModeDisplays()
+
+        // 2. Fetch latest from Firebase Realtime Database
+        val userRef = database.reference.child("users").child(uid)
+        userRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 showLoading(false)
 
-                if (snapshot.exists()) {
+                val profileSnap = snapshot.child("profile")
+                if (profileSnap.exists()) {
                     profileExists = true
-                    val displayName = snapshot.child("displayName").getValue(String::class.java)
-                    val gender = snapshot.child("gender").getValue(String::class.java)
-                    val age = snapshot.child("age").getValue(Long::class.java)
-                    val city = snapshot.child("city").getValue(String::class.java)
+                    val displayName = profileSnap.child("displayName").getValue(String::class.java)
+                    val gender = profileSnap.child("gender").getValue(String::class.java)
+                    val age = profileSnap.child("age").getValue(Long::class.java)
+                    val city = profileSnap.child("city").getValue(String::class.java)
 
-                    etDisplayName.setText(displayName ?: "AnonUser")
+                    if (!displayName.isNullOrEmpty()) etDisplayName.setText(displayName)
                     val genderIndex = if (gender != null) genderOptions.indexOf(gender) else 0
-                    spinnerGender.setSelection(if (genderIndex >= 0) genderIndex else 0)
+                    if (genderIndex >= 0) spinnerGender.setSelection(genderIndex)
+                    if (age != null) etAge.setText(age.toString())
+                    if (city != null) etCity.setText(city)
 
-                    if (age != null) {
-                        etAge.setText(age.toString())
+                    val avatar = snapshot.child("avatar").getValue(String::class.java)
+                    if (!avatar.isNullOrEmpty()) {
+                        try {
+                            val bytes = Base64.decode(avatar, Base64.DEFAULT)
+                            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            if (bitmap != null) ivProfilePic.setImageBitmap(bitmap)
+                        } catch (_: Exception) {}
                     }
-
-                    etCity.setText(city ?: "")
                 } else {
-                    profileExists = false
-                    etDisplayName.setText(
-                        TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
-                    )
-                    val cachedGender = TestSession.cachedProfileGender(this@ProfileActivity, uid)
-                    val genderIndex = if (cachedGender != null) genderOptions.indexOf(cachedGender) else 0
-                    spinnerGender.setSelection(if (genderIndex >= 0) genderIndex else 0)
-                    val cachedAge = TestSession.cachedProfileAge(this@ProfileActivity, uid)
-                    if (cachedAge != null) {
-                        etAge.setText(cachedAge.toString())
-                    }
-                    etCity.setText(TestSession.cachedProfileCity(this@ProfileActivity, uid) ?: "")
+                    profileExists = !cachedName.isNullOrEmpty()
                 }
+
+                updateViewModeDisplays()
                 setEditMode(fromLogin && !profileExists)
             }
 
             override fun onCancelled(error: DatabaseError) {
                 showLoading(false)
-                if (AuthActivity.TEST_MODE) {
-                    profileExists = false
-                    etDisplayName.setText(
-                        TestSession.cachedDisplayName(this@ProfileActivity, uid) ?: "AnonUser"
-                    )
-                    val cachedGender = TestSession.cachedProfileGender(this@ProfileActivity, uid)
-                    val genderIndex = if (cachedGender != null) genderOptions.indexOf(cachedGender) else 0
-                    spinnerGender.setSelection(if (genderIndex >= 0) genderIndex else 0)
-                    val cachedAge = TestSession.cachedProfileAge(this@ProfileActivity, uid)
-                    if (cachedAge != null) {
-                        etAge.setText(cachedAge.toString())
-                    }
-                    etCity.setText(TestSession.cachedProfileCity(this@ProfileActivity, uid) ?: "")
-                    setEditMode(fromLogin && !profileExists)
-                } else {
-                    showError("Failed to load profile. Please try again.")
-                }
+                updateViewModeDisplays()
             }
         })
     }
 
     // --- Save Profile ---
-
     private fun saveProfile(continueAfterSave: Boolean) {
         val uid = TestSession.currentUserId(this) ?: return
 
@@ -374,9 +386,13 @@ class ProfileActivity : AppCompatActivity() {
         profileData["age"] = age
         profileData["city"] = city
 
-        // Always cache locally so the name and other details are available without a database round trip.
+        val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+        val phoneNumber = prefs.getString("current_phone_number", "") ?: ""
+
+        // Always cache locally and sync with UserDatabase
         TestSession.cacheDisplayName(this, uid, displayName)
         TestSession.cacheProfile(this, uid, displayName, gender, age, city, null)
+        UserDatabase.saveUser(this, uid, phoneNumber, displayName, gender, age, city)
 
         val profileRef = database.reference.child("users").child(uid).child("profile")
         profileRef.setValue(profileData)
