@@ -65,9 +65,74 @@ object ChatStorage {
     }
 
     fun deleteChat(context: Context, chatId: String) {
-        val chats = getSavedChats(context).filter { it.id != chatId }
-        persistChats(context, chats, syncCloud = true)
+        val chats = getSavedChats(context)
+        val chatToDelete = chats.find { it.id == chatId }
+
+        // Save the thread reference so we can still receive future messages
+        if (chatToDelete?.threadId != null) {
+            saveDeletedThread(context, chatToDelete)
+        }
+
+        val remaining = chats.filter { it.id != chatId }
+        persistChats(context, remaining, syncCloud = true)
     }
+
+    /** Store minimal info about deleted threads so new messages can re-create the chat */
+    private fun saveDeletedThread(context: Context, chat: SavedChat) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val json = prefs.getString("deleted_threads", "[]") ?: "[]"
+        val arr = org.json.JSONArray(json)
+        val obj = org.json.JSONObject().apply {
+            put("threadId", chat.threadId)
+            put("partnerAccountId", chat.partnerAccountId ?: "")
+            put("partnerName", chat.partnerName)
+            put("userName", chat.userName)
+        }
+        arr.put(obj)
+        prefs.edit().putString("deleted_threads", arr.toString()).apply()
+    }
+
+    /** Get all deleted thread references */
+    fun getDeletedThreads(context: Context): List<DeletedThread> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val json = prefs.getString("deleted_threads", "[]") ?: "[]"
+        val result = mutableListOf<DeletedThread>()
+        try {
+            val arr = org.json.JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                result.add(DeletedThread(
+                    threadId = obj.getString("threadId"),
+                    partnerAccountId = obj.optString("partnerAccountId", ""),
+                    partnerName = obj.optString("partnerName", "AnnoUser"),
+                    userName = obj.optString("userName", "")
+                ))
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
+    /** Remove a deleted thread entry (when it gets re-created as a saved chat) */
+    fun removeDeletedThread(context: Context, threadId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val json = prefs.getString("deleted_threads", "[]") ?: "[]"
+        val arr = org.json.JSONArray(json)
+        val filtered = org.json.JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (obj.getString("threadId") != threadId) {
+                filtered.put(obj)
+            }
+        }
+        prefs.edit().putString("deleted_threads", filtered.toString()).apply()
+    }
+
+    data class DeletedThread(
+        val threadId: String,
+        val partnerAccountId: String,
+        val partnerName: String,
+        val userName: String
+    )
 
     fun persistChats(context: Context, chats: List<SavedChat>, syncCloud: Boolean = true) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

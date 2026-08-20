@@ -218,7 +218,6 @@ object UserDatabase {
      */
     fun registerUserThread(userId: String?, partnerId: String?, threadId: String?) {
         if (userId.isNullOrBlank() || threadId.isNullOrBlank()) return
-        if (AuthActivity.TEST_MODE) return
 
         val db = FirebaseDatabase.getInstance().reference
         val updates = mutableMapOf<String, Any>(

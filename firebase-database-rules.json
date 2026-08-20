@@ -59,6 +59,12 @@
           ".indexOn": ["timestamp"]
         }
       }
+    },
+    "user_threads": {
+      "$uid": {
+        ".read": true,
+        ".write": true
+      }
     }
   }
 }

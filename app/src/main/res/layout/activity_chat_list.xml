@@ -38,43 +38,28 @@
                 android:layout_height="match_parent"
                 android:orientation="vertical">
 
-                <!-- Identity badge row -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingHorizontal="16dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="2dp"
-                    android:gravity="end">
-
-                    <TextView
-                        android:id="@+id/tvListIdentity"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_identity_badge"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="3dp"
-                        android:textColor="@color/white"
-                        android:textSize="11sp"
-                        tools:text="SwiftFox472" />
-                </LinearLayout>
-
                 <!-- Enter Chat Room Button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnJoinRoom"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
+                    android:layout_height="52dp"
                     android:layout_marginHorizontal="16dp"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="8dp"
                     android:text="@string/enter_chat_room"
                     android:textColor="@color/white"
                     android:textSize="16sp"
                     app:backgroundTint="@color/primary"
-                    app:cornerRadius="16dp"
+                    app:cornerRadius="14dp"
                     app:icon="@drawable/ic_chat_room"
                     app:iconGravity="textStart"
                     app:iconTint="@color/white" />
+
+                <!-- Hidden identity badge for code compatibility -->
+                <TextView
+                    android:id="@+id/tvListIdentity"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
 
                 <!-- Section title -->
                 <TextView
