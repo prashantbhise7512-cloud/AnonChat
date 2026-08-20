@@ -26,6 +26,32 @@ import com.google.firebase.database.ValueEventListener
 import de.hdodenhof.circleimageview.CircleImageView
 import java.util.UUID
 
+class SavedChatActivity : AppCompatActivity() {
+
+    companion object {
+        private const val REQUEST_RECORD_AUDIO = 201
+    }
+
+    private var chatId: String = ""
+    private lateinit var adapter: MessageAdapter
+    private val messages = mutableListOf<ChatMessage>()
+    private var threadRef: com.google.firebase.database.DatabaseReference? = null
+    private var threadListener: ChildEventListener? = null
+    private lateinit var recyclerMessages: RecyclerView
+    private lateinit var myId: String
+    private lateinit var chat: SavedChat
+
+    private lateinit var tvToolbarTitle: TextView
+    private lateinit var tvToolbarSubtitle: TextView
+
+    // Voice recording
+    private var mediaRecorder: android.media.MediaRecorder? = null
+    private var recordedAudioFile: java.io.File? = null
+    private var recordStartTime: Long = 0L
+    private var isRecording = false
+    private val recordTimerHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var recordTimerRunnable: Runnable? = null
+
     private var replyingMessage: ChatMessage? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -287,7 +313,7 @@ import java.util.UUID
 
     private fun setReplyMessage(message: ChatMessage) {
         replyingMessage = message
-        val layoutReplyPreview = findViewById<View>(R.id.layoutReplyPreview) ?: return
+        val layoutReplyPreview = findViewById<android.view.View>(R.id.layoutReplyPreview) ?: return
         val tvReplyingToSender = findViewById<TextView>(R.id.tvReplyingToSender) ?: return
         val tvReplyingToText = findViewById<TextView>(R.id.tvReplyingToText) ?: return
 
@@ -296,7 +322,7 @@ import java.util.UUID
 
         tvReplyingToSender.text = "Replying to $senderName"
         tvReplyingToText.text = snippet
-        layoutReplyPreview.visibility = View.VISIBLE
+        layoutReplyPreview.visibility = android.view.View.VISIBLE
 
         val editMessage = findViewById<EditText>(R.id.editMessage)
         editMessage.requestFocus()
@@ -304,7 +330,7 @@ import java.util.UUID
 
     private fun clearReplyMessage() {
         replyingMessage = null
-        findViewById<View>(R.id.layoutReplyPreview)?.visibility = View.GONE
+        findViewById<android.view.View>(R.id.layoutReplyPreview)?.visibility = android.view.View.GONE
     }
 
     private fun checkRecordPermissionAndStart() {
@@ -343,8 +369,8 @@ import java.util.UUID
             isRecording = true
             recordStartTime = System.currentTimeMillis()
 
-            findViewById<View>(R.id.layoutTextInput).visibility = View.GONE
-            findViewById<View>(R.id.layoutRecording).visibility = View.VISIBLE
+            findViewById<android.view.View>(R.id.layoutTextInput).visibility = android.view.View.GONE
+            findViewById<android.view.View>(R.id.layoutRecording).visibility = android.view.View.VISIBLE
 
             startRecordTimer()
         } catch (_: Exception) {
@@ -367,8 +393,8 @@ import java.util.UUID
         } catch (_: Exception) {}
         mediaRecorder = null
 
-        findViewById<View>(R.id.layoutRecording).visibility = View.GONE
-        findViewById<View>(R.id.layoutTextInput).visibility = View.VISIBLE
+        findViewById<android.view.View>(R.id.layoutRecording).visibility = android.view.View.GONE
+        findViewById<android.view.View>(R.id.layoutTextInput).visibility = android.view.View.VISIBLE
 
         if (send && file != null && file.exists() && file.length() > 0L) {
             if (durationMs < 1000) {
