@@ -197,6 +197,8 @@
             app:backgroundTint="@color/leave_button_bg"
             app:cornerRadius="12dp"
             app:icon="@drawable/ic_leave"
+            app:iconSize="14dp"
+            app:iconTint="@color/leave_button_text" />
     </LinearLayout>
 
     <!-- Reply Preview Bar -->
