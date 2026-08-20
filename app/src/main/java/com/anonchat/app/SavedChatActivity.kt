@@ -81,6 +81,21 @@ class SavedChatActivity : AppCompatActivity() {
         toolbarTitleBlock.setOnClickListener { showPartnerProfileDialog() }
         findViewById<CircleImageView>(R.id.ivToolbarAvatar).setOnClickListener { showPartnerProfileDialog() }
 
+        val swipeRefresh = findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout>(R.id.swipeRefreshSavedChat)
+        swipeRefresh.setOnRefreshListener {
+            val updatedChats = ChatStorage.getSavedChats(this)
+            val updatedChat = updatedChats.find { it.id == chatId }
+            if (updatedChat != null) {
+                chat = updatedChat
+                messages.clear()
+                messages.addAll(updatedChat.messages)
+                adapter.submitList(messages.toList())
+                loadLastActive()
+                loadToolbarAvatar()
+            }
+            swipeRefresh.isRefreshing = false
+        }
+
         // Load messages
         messages.addAll(chat.messages)
         adapter = MessageAdapter(myId)

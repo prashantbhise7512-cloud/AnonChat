@@ -49,7 +49,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: MessageAdapter
 
     // Views
-    private lateinit var toolbar: MaterialToolbar
+    private lateinit var headerContainer: View
+    private lateinit var tvMainTitle: TextView
+    private lateinit var ivMainPartnerAvatar: de.hdodenhof.circleimageview.CircleImageView
     private lateinit var onlineIndicator: LinearLayout
     private lateinit var tvOnlineCount: TextView
     private lateinit var tvIdentity: TextView
@@ -76,7 +78,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindViews() {
-        toolbar = findViewById(R.id.toolbar)
+        headerContainer = findViewById(R.id.toolbar)
+        tvMainTitle = findViewById(R.id.tvMainTitle)
+        ivMainPartnerAvatar = findViewById(R.id.ivMainPartnerAvatar)
         onlineIndicator = findViewById(R.id.onlineIndicator)
         tvOnlineCount = findViewById(R.id.tvOnlineCount)
         tvIdentity = findViewById(R.id.tvIdentity)
@@ -91,6 +95,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupToolbar() {
         tvIdentity.text = getString(R.string.your_identity, userName)
+        headerContainer.setOnClickListener {
+            val partnerId = currentPartnerId
+            if (!partnerId.isNullOrEmpty()) {
+                val intent = Intent(this, PartnerProfileActivity::class.java).apply {
+                    putExtra(PartnerProfileActivity.EXTRA_PARTNER_ACCOUNT_ID, partnerId)
+                    putExtra(PartnerProfileActivity.EXTRA_PARTNER_NAME, currentPartnerName ?: "AnnoUser")
+                }
+                startActivity(intent)
+            }
+        }
     }
 
     private fun setupRecyclerView() {
@@ -478,7 +492,8 @@ class MainActivity : AppCompatActivity() {
 
     // === UI STATES ===
     private fun showSearchingState() {
-        toolbar.title = getString(R.string.searching)
+        tvMainTitle.text = getString(R.string.searching)
+        ivMainPartnerAvatar.visibility = View.GONE
         onlineIndicator.visibility = View.GONE
         emptyState.visibility = View.VISIBLE
         recyclerMessages.visibility = View.GONE
@@ -493,7 +508,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showConnectedState(partnerName: String) {
-        toolbar.title = partnerName
+        tvMainTitle.text = partnerName
+        ivMainPartnerAvatar.visibility = View.VISIBLE
+        ivMainPartnerAvatar.setImageResource(R.drawable.ic_default_avatar)
+
+        val partnerId = currentPartnerId
+        if (!partnerId.isNullOrBlank()) {
+            val cachedAvatar = TestSession.cachedProfileAvatar(this, partnerId)
+            if (!cachedAvatar.isNullOrEmpty()) {
+                try {
+                    val bytes = android.util.Base64.decode(cachedAvatar, android.util.Base64.DEFAULT)
+                    ivMainPartnerAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                } catch (_: Exception) {}
+            } else if (!AuthActivity.TEST_MODE) {
+                FirebaseDatabase.getInstance().reference
+                    .child("users").child(partnerId).child("avatar")
+                    .addListenerForSingleValueEvent(object : ValueEventListener {
+                        override fun onDataChange(snapshot: DataSnapshot) {
+                            val avatarData = snapshot.getValue(String::class.java)
+                            if (!avatarData.isNullOrEmpty()) {
+                                try {
+                                    val bytes = android.util.Base64.decode(avatarData, android.util.Base64.DEFAULT)
+                                    ivMainPartnerAvatar.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+                                } catch (_: Exception) {}
+                            }
+                        }
+                        override fun onCancelled(error: DatabaseError) {}
+                    })
+            }
+        }
+
         onlineIndicator.visibility = View.VISIBLE
         tvOnlineCount.text = "Online"
         emptyState.visibility = View.GONE

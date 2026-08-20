@@ -4,7 +4,7 @@
 // ========== TEST MODE ==========
 // Set to true to bypass Firebase Auth entirely (any phone + any code works, including empty)
 // Set to false when ready for production with real Firebase Auth
-const TEST_MODE = false;
+const TEST_MODE = true;
 
 // Local stand-in for an auth session while TEST_MODE is active. The key names and the
 // account id derivation below MUST stay identical to TestSession.kt on Android so the same
@@ -16,10 +16,22 @@ const TestSession = {
     KEY_PHONE: "anonchat_test_phone",
     PROFILE_PREFIX: "anonchat_test_profile_",
 
-    // Shared derivation: "test_" + every digit of the full E.164 number.
+    // Shared derivation: "test_" + digits if phone entered, or unique guest ID if omitted.
     deriveAccountId: function (phoneNumber) {
         const digits = (phoneNumber || "").replace(/\D/g, "");
-        return digits ? "test_" + digits : "test_anonymous";
+        if (digits && digits.length >= 5) {
+            return "test_" + digits;
+        }
+        try {
+            let guestId = localStorage.getItem("anonchat_guest_uid");
+            if (!guestId) {
+                guestId = "test_guest_" + Math.floor(100000 + Math.random() * 900000);
+                localStorage.setItem("anonchat_guest_uid", guestId);
+            }
+            return guestId;
+        } catch (e) {
+            return "test_guest_" + Math.floor(100000 + Math.random() * 900000);
+        }
     },
 
     isActive: function () {
@@ -34,9 +46,12 @@ const TestSession = {
         return uid;
     },
 
-    // Clears only the active flag, so the uid and cached profile survive a re-login.
+    // Clears the active session and cached UID so the user can sign in as a different number.
     signOut: function () {
-        localStorage.setItem(this.KEY_ACTIVE, "false");
+        localStorage.removeItem(this.KEY_ACTIVE);
+        localStorage.removeItem(this.KEY_UID);
+        localStorage.removeItem(this.KEY_PHONE);
+        localStorage.removeItem("anonchat_guest_uid");
     },
 
     uid: function () {
@@ -271,6 +286,15 @@ async function sendOTP() {
 }
 
 // === Event Listeners for Auth ===
+const btnSkipOtp = document.getElementById("btnSkipOtp");
+
+if (btnSkipOtp) {
+    btnSkipOtp.addEventListener("click", function () {
+        testModePhone = getFullPhoneNumber();
+        testModeVerify();
+    });
+}
+
 btnSendCode.addEventListener("click", function () {
     if (TEST_MODE) {
         testModeSendCode();
@@ -301,27 +325,22 @@ btnVerifyOtp.addEventListener("click", function () {
 // === TEST MODE FUNCTIONS ===
 function testModeSendCode() {
     hideAuthError();
-    console.log("[TEST MODE] Send Code clicked — transitioning to OTP step");
-
-    // Any phone number is accepted, including an empty field. No validation, no SMS.
+    console.log("[TEST MODE] Bypassing OTP — signing in directly");
     testModePhone = getFullPhoneNumber();
-
-    // Transition to OTP step immediately
-    authStepPhone.classList.remove("auth-step-active");
-    authStepOtp.classList.add("auth-step-active");
-    otpPhoneDisplay.textContent = testModePhone;
-    startResendCountdown();
+    testModeVerify();
 }
 
 function testModeVerify() {
     hideAuthError();
 
-    // Any code is accepted, including an empty field.
+    if (!testModePhone) {
+        testModePhone = getFullPhoneNumber();
+    }
+
     var accountId;
     try {
         accountId = TestSession.signIn(testModePhone);
     } catch (e) {
-        // localStorage blocked — derive id without persisting.
         accountId = TestSession.deriveAccountId(testModePhone);
     }
 
@@ -497,17 +516,28 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         tabChats.classList.remove("tab-active");
         profileSection.classList.remove("hidden");
         chatsSection.classList.add("hidden");
+        loadProfile();
     });
 
     // === PROFILE PICTURE ===
     const avatarInput = $("avatarInput");
     const avatarImage = $("avatarImage");
     const avatarPlaceholder = $("avatarPlaceholder");
+    const btnRemoveAvatar = $("btnRemoveAvatar");
     const profileUid = $("profileUid");
     const AVATAR_KEY = "anonchat_avatar_" + accountId;
 
     // Show unique ID below profile picture (not editable)
     profileUid.textContent = "ID: " + accountId;
+
+    function updateAvatarRemoveButton() {
+        const currentAvatar = localStorage.getItem(AVATAR_KEY);
+        if (currentAvatar && btnRemoveAvatar) {
+            btnRemoveAvatar.classList.remove("hidden");
+        } else if (btnRemoveAvatar) {
+            btnRemoveAvatar.classList.add("hidden");
+        }
+    }
 
     // Load saved avatar from localStorage
     const savedAvatar = localStorage.getItem(AVATAR_KEY);
@@ -515,6 +545,22 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         avatarImage.src = savedAvatar;
         avatarImage.classList.remove("hidden");
         avatarPlaceholder.classList.add("hidden");
+    }
+    updateAvatarRemoveButton();
+
+    if (btnRemoveAvatar) {
+        btnRemoveAvatar.addEventListener("click", function() {
+            localStorage.removeItem(AVATAR_KEY);
+            avatarImage.src = "";
+            avatarImage.classList.add("hidden");
+            avatarPlaceholder.classList.remove("hidden");
+            if (avatarInput) avatarInput.value = "";
+            updateAvatarRemoveButton();
+
+            if (!TEST_MODE && profileRef) {
+                firebase.database().ref("/users/" + accountId + "/avatar").remove();
+            }
+        });
     }
 
     avatarInput.addEventListener("change", function(e) {
@@ -540,6 +586,7 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
 
             // Save to localStorage (base64)
             localStorage.setItem(AVATAR_KEY, dataUrl);
+            updateAvatarRemoveButton();
 
             // Also save to Firebase so other users can view it
             if (!TEST_MODE && profileRef) {
@@ -548,6 +595,51 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         };
         reader.readAsDataURL(file);
     });
+
+    // === VIEW vs EDIT MODE FOR PROFILE ===
+    const btnEditProfile = document.getElementById("btnEditProfile");
+    const btnCancelEdit = document.getElementById("btnCancelEdit");
+    const profileViewMode = document.getElementById("profileViewMode");
+    const profileEditMode = document.getElementById("profileEditMode");
+
+    const viewProfileName = document.getElementById("viewProfileName");
+    const viewProfileGender = document.getElementById("viewProfileGender");
+    const viewProfileAge = document.getElementById("viewProfileAge");
+    const viewProfileCity = document.getElementById("viewProfileCity");
+
+    function updateProfileViewDisplay() {
+        if (viewProfileName) viewProfileName.textContent = profileName.value.trim() || "AnnoUser";
+        if (viewProfileGender) viewProfileGender.textContent = profileGender.value || "Not specified";
+        if (viewProfileAge) viewProfileAge.textContent = profileAge.value.trim() ? profileAge.value.trim() + " yrs" : "Not specified";
+        if (viewProfileCity) viewProfileCity.textContent = profileCity.value.trim() || "Not specified";
+    }
+
+    function setProfileEditState(isEditing) {
+        if (isEditing) {
+            profileViewMode.classList.add("hidden");
+            profileEditMode.classList.remove("hidden");
+            if (btnEditProfile) btnEditProfile.classList.add("hidden");
+        } else {
+            profileEditMode.classList.add("hidden");
+            profileViewMode.classList.remove("hidden");
+            if (btnEditProfile) btnEditProfile.classList.remove("hidden");
+            profileSaveStatus.textContent = "";
+        }
+    }
+
+    if (btnEditProfile) {
+        btnEditProfile.addEventListener("click", function () {
+            setProfileEditState(true);
+        });
+    }
+
+    if (btnCancelEdit) {
+        btnCancelEdit.addEventListener("click", function () {
+            loadProfile().then(function () {
+                setProfileEditState(false);
+            });
+        });
+    }
 
     // === PROFILE READ ON INIT ===
     const PROFILE_DATA_KEY = TestSession.profileKey(accountId);
@@ -575,6 +667,7 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
                 profileCity.value = "";
                 userName = "AnnoUser";
             }
+            updateProfileViewDisplay();
             return Promise.resolve();
         }
 
@@ -593,10 +686,12 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
                 profileCity.value = "";
                 userName = "AnnoUser";
             }
+            updateProfileViewDisplay();
         }).catch(function () {
             // Database unreachable — fall back to the locally cached name.
             userName = TestSession.cachedDisplayName(accountId) || "AnnoUser";
             profileName.value = userName;
+            updateProfileViewDisplay();
         });
     }
 
@@ -669,6 +764,10 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
             btnSaveProfile.disabled = false;
             if (welcomeUsername) welcomeUsername.value = userName;
             listIdentity.textContent = userName;
+            updateProfileViewDisplay();
+            setTimeout(function () {
+                setProfileEditState(false);
+            }, 600);
         } else {
             profileRef.set(profileData).then(function () {
                 userName = name;
@@ -678,6 +777,10 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
                 btnSaveProfile.disabled = false;
                 if (welcomeUsername) welcomeUsername.value = userName;
                 listIdentity.textContent = userName;
+                updateProfileViewDisplay();
+                setTimeout(function () {
+                    setProfileEditState(false);
+                }, 600);
             }).catch(function () {
                 profileSaveStatus.textContent = "Failed to save. Please try again.";
                 btnSaveProfile.disabled = false;
@@ -753,42 +856,243 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         screen.classList.remove("hidden");
     }
 
-    // Show welcome screen after auth (only on first login, skip if profile already exists).
-    // In test mode the Profile screen is the only place a display name is set, matching Android.
-    const hasProfile = TEST_MODE ? true : TestSession.cachedDisplayName(accountId);
-    if (hasProfile && hasProfile !== "AnnoUser") {
-        // Returning user — skip welcome, go to chat list
+    // Show profile setup screen (welcomeScreen) on first-time login for this account.
+    // Skips if user has already completed setup or skipped it previously.
+    const SETUP_DONE_KEY = "anonchat_profile_setup_done_" + accountId;
+    const isSetupDone = localStorage.getItem(SETUP_DONE_KEY) === "true";
+
+    if (isSetupDone) {
+        // Returning user — skip profile setup, go directly to chat list
         showScreen(chatListScreen);
         listIdentity.textContent = userName;
         renderSavedChats();
     } else {
-        // First login — show welcome to set display name
+        // First-time login — show profile setup screen (matches Android SetupProfileActivity)
         showScreen(welcomeScreen);
         const welcomeNameInput = document.getElementById("welcomeNameInput");
-        welcomeNameInput.value = userName === "AnnoUser" ? "" : userName;
+        if (welcomeNameInput) {
+            welcomeNameInput.value = userName === "AnnoUser" ? "" : userName;
+        }
     }
 
-    // === WELCOME → CHAT LIST ===
-    btnEnterApp.addEventListener("click", () => {
-        const welcomeNameInput = document.getElementById("welcomeNameInput");
-        const enteredName = welcomeNameInput.value.trim() || "AnnoUser";
+    // === SETUP PROFILE PHOTO PICKER ===
+    const setupAvatarInput = document.getElementById("setupAvatarInput");
+    const setupAvatarImage = document.getElementById("setupAvatarImage");
+    const setupAvatarPlaceholder = document.getElementById("setupAvatarPlaceholder");
+    const btnRemoveSetupAvatar = document.getElementById("btnRemoveSetupAvatar");
+    let setupAvatarBase64 = null;
 
-        // Save the display name
-        userName = enteredName;
+    function updateSetupAvatarRemoveButton() {
+        if (setupAvatarBase64 && btnRemoveSetupAvatar) {
+            btnRemoveSetupAvatar.classList.remove("hidden");
+        } else if (btnRemoveSetupAvatar) {
+            btnRemoveSetupAvatar.classList.add("hidden");
+        }
+    }
 
-        // Also save to profile data
-        const existingProfile = TestSession.cachedProfile(accountId) || {};
-        existingProfile.displayName = userName;
-        localStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(existingProfile));
+    if (btnRemoveSetupAvatar) {
+        btnRemoveSetupAvatar.addEventListener("click", function() {
+            setupAvatarBase64 = null;
+            if (setupAvatarImage) {
+                setupAvatarImage.src = "";
+                setupAvatarImage.classList.add("hidden");
+            }
+            if (setupAvatarPlaceholder) {
+                setupAvatarPlaceholder.classList.remove("hidden");
+            }
+            if (setupAvatarInput) setupAvatarInput.value = "";
+            updateSetupAvatarRemoveButton();
+        });
+    }
 
-        // Update profile form if loaded
-        const profileNameEl = document.getElementById("profileName");
-        if (profileNameEl) profileNameEl.value = userName;
+    if (setupAvatarInput) {
+        setupAvatarInput.addEventListener("change", function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith("image/")) {
+                alert("Please select an image file.");
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                alert("Image must be less than 2MB.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                setupAvatarBase64 = event.target.result;
+                if (setupAvatarImage) {
+                    setupAvatarImage.src = setupAvatarBase64;
+                    setupAvatarImage.classList.remove("hidden");
+                }
+                if (setupAvatarPlaceholder) {
+                    setupAvatarPlaceholder.classList.add("hidden");
+                }
+                updateSetupAvatarRemoveButton();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 
-        showScreen(chatListScreen);
-        listIdentity.textContent = userName;
-        renderSavedChats();
-    });
+    // === WELCOME / SETUP PROFILE → CHAT LIST ===
+    if (btnEnterApp) {
+        btnEnterApp.addEventListener("click", () => {
+            const welcomeNameInput = document.getElementById("welcomeNameInput");
+            const welcomeGenderSelect = document.getElementById("welcomeGenderSelect");
+            const welcomeAgeInput = document.getElementById("welcomeAgeInput");
+            const welcomeCityInput = document.getElementById("welcomeCityInput");
+
+            const enteredName = (welcomeNameInput && welcomeNameInput.value.trim()) || "AnnoUser";
+            const enteredGender = welcomeGenderSelect ? welcomeGenderSelect.value : "";
+            const enteredAge = welcomeAgeInput && welcomeAgeInput.value.trim() ? parseInt(welcomeAgeInput.value.trim(), 10) : null;
+            const enteredCity = (welcomeCityInput && welcomeCityInput.value.trim()) || "";
+
+            userName = enteredName;
+
+            const profileData = {
+                displayName: userName,
+                gender: enteredGender || null,
+                age: enteredAge,
+                city: enteredCity || null
+            };
+            localStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(profileData));
+
+            if (setupAvatarBase64) {
+                localStorage.setItem(AVATAR_KEY, setupAvatarBase64);
+                if (avatarImage) {
+                    avatarImage.src = setupAvatarBase64;
+                    avatarImage.classList.remove("hidden");
+                }
+                if (avatarPlaceholder) avatarPlaceholder.classList.add("hidden");
+                if (!TEST_MODE && profileRef) {
+                    firebase.database().ref("/users/" + accountId + "/avatar").set(setupAvatarBase64);
+                }
+            }
+
+            if (!TEST_MODE && profileRef) {
+                profileRef.set(profileData);
+            }
+
+            if (profileName) profileName.value = userName;
+            if (profileGender) profileGender.value = enteredGender;
+            if (profileAge) profileAge.value = enteredAge !== null ? enteredAge : "";
+            if (profileCity) profileCity.value = enteredCity;
+
+            updateProfileViewDisplay();
+            updateAvatarRemoveButton();
+
+            // Mark setup as complete so this screen isn't shown on future logins
+            localStorage.setItem(SETUP_DONE_KEY, "true");
+
+            showScreen(chatListScreen);
+            listIdentity.textContent = userName;
+            renderSavedChats();
+        });
+    }
+
+    const btnSkipSetup = document.getElementById("btnSkipSetup");
+    if (btnSkipSetup) {
+        btnSkipSetup.addEventListener("click", () => {
+            userName = "AnnoUser";
+            const profileData = {
+                displayName: userName,
+                gender: null,
+                age: null,
+                city: null
+            };
+            localStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(profileData));
+            if (!TEST_MODE && profileRef) {
+                profileRef.set(profileData);
+            }
+
+            if (profileName) profileName.value = userName;
+            if (profileGender) profileGender.value = "";
+            if (profileAge) profileAge.value = "";
+            if (profileCity) profileCity.value = "";
+
+            updateProfileViewDisplay();
+
+            // Mark setup as complete so this screen isn't shown on future logins
+            localStorage.setItem(SETUP_DONE_KEY, "true");
+
+            showScreen(chatListScreen);
+            listIdentity.textContent = userName;
+            renderSavedChats();
+        });
+    }
+
+    // === PARTNER PROFILE MODAL HANDLERS ===
+    const partnerProfileModal = document.getElementById("partnerProfileModal");
+    const btnClosePartnerProfile = document.getElementById("btnClosePartnerProfile");
+    const btnClosePartnerProfileBottom = document.getElementById("btnClosePartnerProfileBottom");
+
+    function openPartnerProfileModal(partnerData) {
+        if (!partnerProfileModal || !partnerData) return;
+
+        const nameEl = document.getElementById("partnerProfileName");
+        const uidEl = document.getElementById("partnerProfileUid");
+        const genderEl = document.getElementById("partnerProfileGender");
+        const ageEl = document.getElementById("partnerProfileAge");
+        const cityEl = document.getElementById("partnerProfileCity");
+        const imgEl = document.getElementById("partnerAvatarImage");
+        const placeholderEl = document.getElementById("partnerAvatarPlaceholder");
+
+        if (nameEl) nameEl.textContent = partnerData.name || partnerData.partnerName || "AnnoUser";
+        if (uidEl) uidEl.textContent = (partnerData.accountId || partnerData.partnerAccountId) ? ("ID: " + (partnerData.accountId || partnerData.partnerAccountId)) : "";
+        if (genderEl) genderEl.textContent = partnerData.gender || partnerData.partnerGender || "Not specified";
+        if (ageEl) ageEl.textContent = (partnerData.age !== undefined && partnerData.age !== null && partnerData.age !== -1) ? partnerData.age : ((partnerData.partnerAge !== undefined && partnerData.partnerAge !== null && partnerData.partnerAge !== -1) ? partnerData.partnerAge : "Not specified");
+        if (cityEl) cityEl.textContent = partnerData.city || partnerData.partnerCity || "Not specified";
+
+        const avatar = partnerData.avatar || partnerData.partnerAvatar;
+        if (avatar) {
+            if (imgEl) {
+                imgEl.src = avatar;
+                imgEl.classList.remove("hidden");
+            }
+            if (placeholderEl) placeholderEl.classList.add("hidden");
+        } else {
+            if (imgEl) imgEl.classList.add("hidden");
+            if (placeholderEl) placeholderEl.classList.remove("hidden");
+        }
+
+        partnerProfileModal.classList.remove("hidden");
+        partnerProfileModal.style.display = "flex";
+    }
+
+    function closePartnerProfileModal() {
+        if (!partnerProfileModal) return;
+        partnerProfileModal.classList.add("hidden");
+        partnerProfileModal.style.display = "none";
+    }
+
+    if (btnClosePartnerProfile) btnClosePartnerProfile.addEventListener("click", closePartnerProfileModal);
+    if (btnClosePartnerProfileBottom) btnClosePartnerProfileBottom.addEventListener("click", closePartnerProfileModal);
+
+    // Make openPartnerProfileModal globally available for chat headers
+    window.openPartnerProfileModal = openPartnerProfileModal;
+
+    const chatHeaderClickable = document.getElementById("chatHeaderClickable");
+    const chatHeaderAvatar = document.getElementById("chatHeaderAvatar");
+    const savedChatHeaderClickable = document.getElementById("savedChatHeaderClickable");
+    const savedChatAvatar = document.getElementById("savedChatAvatar");
+
+    const triggerOpenPartnerModal = () => {
+        const partnerAccId = currentPartnerAccountId;
+        const profile = partnerAccId ? JSON.parse(localStorage.getItem(TestSession.PROFILE_PREFIX + partnerAccId) || "{}") : {};
+        const partnerData = {
+            accountId: partnerAccId,
+            name: profile.displayName || currentPartner || "AnnoUser",
+            gender: profile.gender,
+            age: profile.age,
+            city: profile.city,
+            avatar: partnerAccId ? localStorage.getItem("anonchat_avatar_" + partnerAccId) : null
+        };
+        openPartnerProfileModal(partnerData);
+    };
+
+    if (chatHeaderClickable) chatHeaderClickable.addEventListener("click", triggerOpenPartnerModal);
+    if (chatHeaderAvatar) chatHeaderAvatar.addEventListener("click", triggerOpenPartnerModal);
+    if (savedChatHeaderClickable) savedChatHeaderClickable.addEventListener("click", triggerOpenPartnerModal);
+    if (savedChatAvatar) savedChatAvatar.addEventListener("click", triggerOpenPartnerModal);
 
     // === LOGOUT ===
     const btnLogout = document.getElementById("btnLogout");
@@ -850,6 +1154,25 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         chatHeaderTitle.textContent = partnerName;
         headerOnline.style.display = "flex";
         onlineCount.textContent = "Online";
+
+        // Show circular partner avatar before username
+        const headerAvatar = document.getElementById("chatHeaderAvatar");
+        if (headerAvatar) {
+            headerAvatar.classList.remove("hidden");
+            headerAvatar.style.display = "block";
+            const partnerAccId = currentPartnerAccountId;
+            let cachedAvatar = partnerAccId ? localStorage.getItem("anonchat_avatar_" + partnerAccId) : null;
+            if (cachedAvatar) {
+                headerAvatar.src = cachedAvatar;
+            } else {
+                headerAvatar.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231B72C0'><path d='M12,12c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4 -4,1.79 -4,4 1.79,4 4,4zm0,2c-2.67,0 -8,1.34 -8,4v2h16v-2c0,-2.66 -5.33,-4 -8,-4z'/></svg>";
+                if (partnerAccId && !TEST_MODE) {
+                    firebase.database().ref("/users/" + partnerAccId + "/avatar").once("value").then(snap => {
+                        if (snap.val()) headerAvatar.src = snap.val();
+                    }).catch(()=>{});
+                }
+            }
+        }
 
         // Hide empty state and spinner
         emptyState.style.display = "none";
@@ -1760,6 +2083,57 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
             }
         }
     });
+
+    // === PULL TO REFRESH FOR WEB SAVED CHAT SCREENS ===
+    function setupPullToRefresh(container, refreshCallback) {
+        if (!container) return;
+
+        let startY = 0;
+        let pulling = false;
+        let refreshSpinner = document.createElement("div");
+        refreshSpinner.className = "pull-refresh-indicator";
+        refreshSpinner.style.cssText = "text-align: center; padding: 10px; font-size: 13px; color: #007aff; display: none; transition: all 0.2s ease;";
+        refreshSpinner.innerHTML = "🔄 Pull down to refresh...";
+        if (container.parentNode) {
+            container.parentNode.insertBefore(refreshSpinner, container);
+        }
+
+        container.addEventListener("touchstart", (e) => {
+            if (container.scrollTop === 0) {
+                startY = e.touches[0].pageY;
+                pulling = true;
+            }
+        }, { passive: true });
+
+        container.addEventListener("touchmove", (e) => {
+            if (!pulling) return;
+            let currentY = e.touches[0].pageY;
+            let diff = currentY - startY;
+            if (diff > 40 && container.scrollTop === 0) {
+                refreshSpinner.style.display = "block";
+                refreshSpinner.innerHTML = "🔄 Release to refresh...";
+            }
+        }, { passive: true });
+
+        container.addEventListener("touchend", () => {
+            if (!pulling) return;
+            pulling = false;
+            if (refreshSpinner.style.display === "block") {
+                refreshSpinner.innerHTML = "⏳ Refreshing...";
+                setTimeout(() => {
+                    refreshCallback();
+                    refreshSpinner.style.display = "none";
+                    refreshSpinner.innerHTML = "🔄 Pull down to refresh...";
+                }, 500);
+            }
+        }, { passive: true });
+    }
+
+    const savedChatsListEl = document.getElementById("savedChatsList");
+    const savedMessagesContainerEl = document.getElementById("savedMessagesContainer");
+
+    if (savedChatsListEl) setupPullToRefresh(savedChatsListEl, () => { renderSavedChats(); });
+    if (savedMessagesContainerEl) setupPullToRefresh(savedMessagesContainerEl, () => { if (currentSavedChatId) openSavedChat(currentSavedChatId); });
 }
 
 // === UTILITIES (global — used by both auth and chat) ===

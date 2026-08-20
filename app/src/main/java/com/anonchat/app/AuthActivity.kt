@@ -147,10 +147,9 @@ class AuthActivity : AppCompatActivity() {
             hideError()
             val phoneNumber = getFullPhoneNumber()
             if (TEST_MODE) {
-                // Test mode: no validation, no SMS. Any phone number is accepted.
+                // Test mode: no validation, no SMS, no OTP required. Bypass directly.
                 tilPhone.error = null
-                showOtpSection()
-                startResendCountdown()
+                completeTestSignIn()
             } else if (validatePhoneNumber(phoneNumber)) {
                 sendVerificationCode(phoneNumber)
             }

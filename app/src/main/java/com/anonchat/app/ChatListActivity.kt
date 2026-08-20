@@ -34,6 +34,8 @@ class ChatListActivity : AppCompatActivity() {
     private var displayName: String = "Anonymous"
     private val threadListeners = mutableMapOf<String, com.google.firebase.database.ChildEventListener>()
 
+    private lateinit var swipeRefreshSavedChats: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat_list)
@@ -41,11 +43,18 @@ class ChatListActivity : AppCompatActivity() {
         toolbar = findViewById(R.id.toolbar)
         tvListIdentity = findViewById(R.id.tvListIdentity)
         recyclerSavedChats = findViewById(R.id.recyclerSavedChats)
+        swipeRefreshSavedChats = findViewById(R.id.swipeRefreshSavedChats)
         emptyState = findViewById(R.id.emptyState)
         tabChatsContent = findViewById(R.id.tabChatsContent)
         tabProfileContent = findViewById(R.id.tabProfileContent)
         bottomNav = findViewById(R.id.bottomNav)
         val btnJoinRoom = findViewById<MaterialButton>(R.id.btnJoinRoom)
+
+        swipeRefreshSavedChats.setOnRefreshListener {
+            loadSavedChats()
+            loadDisplayName()
+            swipeRefreshSavedChats.isRefreshing = false
+        }
 
         // Bottom navigation tab switching
         bottomNav.setOnItemSelectedListener { item ->

@@ -8,48 +8,61 @@
     tools:context=".MainActivity">
 
     <!-- Top App Bar -->
-    <com.google.android.material.appbar.MaterialToolbar
+    <LinearLayout
         android:id="@+id/toolbar"
         android:layout_width="0dp"
         android:layout_height="64dp"
         android:background="@color/primary"
         android:elevation="@dimen/toolbar_elevation"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:navigationIconTint="@color/white"
-        app:subtitleTextColor="@color/white"
-        app:title="@string/chat_room_title"
-        app:titleTextAppearance="@style/ToolbarTitle"
-        app:titleTextColor="@color/white" />
+        app:layout_constraintTop_toTopOf="parent">
 
-    <!-- Online indicator in toolbar area -->
-    <LinearLayout
-        android:id="@+id/onlineIndicator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="22dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/toolbar">
-
-        <View
-            android:layout_width="8dp"
-            android:layout_height="8dp"
-            android:background="@drawable/bg_online_dot" />
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/ivMainPartnerAvatar"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="10dp"
+            android:src="@drawable/ic_default_avatar"
+            android:visibility="gone"
+            app:civ_border_color="#80FFFFFF"
+            app:civ_border_width="2dp" />
 
         <TextView
-            android:id="@+id/tvOnlineCount"
+            android:id="@+id/tvMainTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/chat_room_title"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/onlineIndicator"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:textColor="#CCFFFFFF"
-            android:textSize="12sp"
-            tools:text="5 online" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/bg_online_dot" />
+
+            <TextView
+                android:id="@+id/tvOnlineCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp"
+                tools:text="5 online" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Your identity bar -->

@@ -50,8 +50,12 @@ class SetupProfileActivity : AppCompatActivity() {
         val etName = findViewById<TextInputEditText>(R.id.etSetupName)
         val spinnerGender = findViewById<Spinner>(R.id.spinnerSetupGender)
         val etAge = findViewById<TextInputEditText>(R.id.etSetupAge)
+        val etCity = findViewById<TextInputEditText>(R.id.etSetupCity)
         val btnSave = findViewById<MaterialButton>(R.id.btnSetupSave)
         val btnSkip = findViewById<MaterialButton>(R.id.btnSetupSkip)
+
+        val tvAddPhoto = findViewById<android.widget.TextView>(R.id.tvSetupAddPhoto)
+        val tvRemovePhoto = findViewById<android.widget.TextView>(R.id.tvSetupRemovePhoto)
 
         // Gender spinner
         spinnerGender.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, genderOptions)
@@ -60,6 +64,13 @@ class SetupProfileActivity : AppCompatActivity() {
         // Photo picker
         ivCamera.setOnClickListener { launchGalleryPicker() }
         ivPhoto.setOnClickListener { launchGalleryPicker() }
+        tvAddPhoto?.setOnClickListener { launchGalleryPicker() }
+
+        tvRemovePhoto.setOnClickListener {
+            avatarBase64 = null
+            ivPhoto.setImageResource(R.drawable.ic_default_avatar)
+            tvRemovePhoto.visibility = android.view.View.GONE
+        }
 
         // Save
         btnSave.setOnClickListener {
@@ -68,6 +79,7 @@ class SetupProfileActivity : AppCompatActivity() {
             val gender: String? = if (selectedGender == 0) null else genderOptions[selectedGender]
             val ageText = etAge.text?.toString()?.trim() ?: ""
             val age: Int? = if (ageText.isEmpty()) null else ageText.toIntOrNull()
+            val city = etCity.text?.toString()?.trim() ?: ""
 
             // Validate name
             if (name.isEmpty()) {
@@ -82,6 +94,7 @@ class SetupProfileActivity : AppCompatActivity() {
             val profileData = mutableMapOf<String, Any>("displayName" to name)
             if (gender != null) profileData["gender"] = gender
             if (age != null) profileData["age"] = age
+            if (city.isNotEmpty()) profileData["city"] = city
 
             db.reference.child("users").child(uid).child("profile").setValue(profileData)
 
@@ -90,13 +103,22 @@ class SetupProfileActivity : AppCompatActivity() {
                 db.reference.child("users").child(uid).child("avatar").setValue(avatar)
             }
 
-            // Cache locally
+            // Cache display name locally
             TestSession.cacheDisplayName(this, uid, name)
 
-            // Save avatar locally
+            // Save full profile JSON locally
+            val prefs = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+            val json = org.json.JSONObject().apply {
+                put("displayName", name)
+                if (gender != null) put("gender", gender) else put("gender", org.json.JSONObject.NULL)
+                if (age != null) put("age", age) else put("age", org.json.JSONObject.NULL)
+                if (city.isNotEmpty()) put("city", city) else put("city", org.json.JSONObject.NULL)
+            }.toString()
+            prefs.edit().putString("profile_$uid", json).apply()
+
+            // Save avatar locally if set
             avatarBase64?.let { avatar ->
-                getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
-                    .edit().putString("avatar_$uid", avatar).apply()
+                prefs.edit().putString("avatar_$uid", avatar).apply()
             }
 
             Toast.makeText(this, "Profile saved!", Toast.LENGTH_SHORT).show()
@@ -121,6 +143,7 @@ class SetupProfileActivity : AppCompatActivity() {
             inputStream.close()
 
             findViewById<CircleImageView>(R.id.ivSetupPhoto).setImageBitmap(bitmap)
+            findViewById<android.widget.TextView>(R.id.tvSetupRemovePhoto)?.visibility = android.view.View.VISIBLE
 
             val outputStream = ByteArrayOutputStream()
             bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, outputStream)

@@ -51,6 +51,16 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var ivProfilePic: ImageView
     private lateinit var ivCameraIcon: ImageView
 
+    private lateinit var llProfileViewMode: View
+    private lateinit var llProfileEditMode: View
+    private lateinit var tvViewName: TextView
+    private lateinit var tvViewGender: TextView
+    private lateinit var tvViewAge: TextView
+    private lateinit var tvViewCity: TextView
+    private lateinit var btnEditProfileDetails: MaterialButton
+    private lateinit var btnCancelEdit: MaterialButton
+    private lateinit var btnRemovePhoto: TextView
+
     private var fromLogin = false
     private var isEditMode = false
 
@@ -104,6 +114,16 @@ class ProfileActivity : AppCompatActivity() {
         tvError = findViewById(R.id.tvError)
         ivProfilePic = findViewById(R.id.ivProfilePic)
         ivCameraIcon = findViewById(R.id.ivCameraIcon)
+
+        llProfileViewMode = findViewById(R.id.llProfileViewMode)
+        llProfileEditMode = findViewById(R.id.llProfileEditMode)
+        tvViewName = findViewById(R.id.tvViewName)
+        tvViewGender = findViewById(R.id.tvViewGender)
+        tvViewAge = findViewById(R.id.tvViewAge)
+        tvViewCity = findViewById(R.id.tvViewCity)
+        btnEditProfileDetails = findViewById(R.id.btnEditProfileDetails)
+        btnCancelEdit = findViewById(R.id.btnCancelEdit)
+        btnRemovePhoto = findViewById(R.id.btnRemovePhoto)
     }
 
     private fun setupToolbar() {
@@ -126,11 +146,26 @@ class ProfileActivity : AppCompatActivity() {
             val bytes = Base64.decode(savedAvatar, Base64.DEFAULT)
             val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             ivProfilePic.setImageBitmap(bitmap)
+            btnRemovePhoto.visibility = View.VISIBLE
+        } else {
+            ivProfilePic.setImageResource(R.drawable.ic_default_avatar)
+            btnRemovePhoto.visibility = View.GONE
         }
 
         // Click to change photo
         ivCameraIcon.setOnClickListener { launchGalleryPicker() }
         ivProfilePic.setOnClickListener { launchGalleryPicker() }
+        val tvChangePhoto = findViewById<TextView>(R.id.tvChangePhoto)
+        tvChangePhoto?.setOnClickListener { launchGalleryPicker() }
+
+        // Remove photo listener
+        btnRemovePhoto.setOnClickListener {
+            prefs.edit().remove("avatar_$currentUid").apply()
+            ivProfilePic.setImageResource(R.drawable.ic_default_avatar)
+            btnRemovePhoto.visibility = View.GONE
+            database.reference.child("users").child(currentUid).child("avatar").removeValue()
+            Toast.makeText(this, "Profile photo removed", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun launchGalleryPicker() {
@@ -161,6 +196,7 @@ class ProfileActivity : AppCompatActivity() {
             // Save to Firebase so other users can fetch it on demand
             database.reference.child("users").child(uid).child("avatar").setValue(base64)
 
+            btnRemovePhoto.visibility = View.VISIBLE
             Toast.makeText(this, "Photo updated!", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show()
@@ -178,8 +214,13 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
-        btnEditProfile.setOnClickListener {
+        btnEditProfileDetails.setOnClickListener {
             setEditMode(true)
+        }
+
+        btnCancelEdit.setOnClickListener {
+            loadProfile()
+            setEditMode(false)
         }
 
         btnSaveProfile.setOnClickListener {
@@ -370,6 +411,19 @@ class ProfileActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun updateViewModeDisplays() {
+        val name = etDisplayName.text?.toString()?.trim()
+        val selectedGenderPos = spinnerGender.selectedItemPosition
+        val gender = if (selectedGenderPos > 0) genderOptions[selectedGenderPos] else null
+        val age = etAge.text?.toString()?.trim()
+        val city = etCity.text?.toString()?.trim()
+
+        tvViewName.text = if (!name.isNullOrEmpty()) name else "AnnoUser"
+        tvViewGender.text = gender ?: "Not specified"
+        tvViewAge.text = if (!age.isNullOrEmpty()) "$age yrs" else "Not specified"
+        tvViewCity.text = if (!city.isNullOrEmpty()) city else "Not specified"
+    }
+
     private fun setEditMode(enabled: Boolean) {
         isEditMode = enabled
         etDisplayName.isEnabled = enabled
@@ -383,13 +437,16 @@ class ProfileActivity : AppCompatActivity() {
         ivCameraIcon.alpha = alpha
         ivProfilePic.alpha = alpha
 
-        btnSaveProfile.visibility = if (enabled) View.VISIBLE else View.GONE
-        btnEditProfile.visibility = if (enabled || fromLogin) View.GONE else View.VISIBLE
-        btnContinueWithoutProfile.visibility = if (fromLogin) View.VISIBLE else View.GONE
-
-        if (!enabled) {
-            btnSaveProfile.isEnabled = true
+        if (enabled) {
+            llProfileViewMode.visibility = View.GONE
+            llProfileEditMode.visibility = View.VISIBLE
+        } else {
+            updateViewModeDisplays()
+            llProfileEditMode.visibility = View.GONE
+            llProfileViewMode.visibility = View.VISIBLE
         }
+
+        btnSaveProfile.isEnabled = true
     }
 
     // --- Blocked Users ---
