@@ -360,6 +360,7 @@ object ChatStorage {
                         put("status", msg.status)
                         put("type", msg.type)
                         put("audioData", msg.audioData ?: "")
+                        put("imageData", msg.imageData ?: "")
                         put("durationMs", msg.durationMs)
                         put("replyToId", msg.replyToId ?: "")
                         put("replyToSender", msg.replyToSender ?: "")
@@ -394,6 +395,7 @@ object ChatStorage {
                         status = m.optString("status", "sent"),
                         type = m.optString("type", "text"),
                         audioData = m.optString("audioData", "").ifEmpty { null },
+                        imageData = m.optString("imageData", "").ifEmpty { null },
                         durationMs = m.optLong("durationMs", 0L),
                         replyToId = m.optString("replyToId", "").ifEmpty { null },
                         replyToSender = m.optString("replyToSender", "").ifEmpty { null },

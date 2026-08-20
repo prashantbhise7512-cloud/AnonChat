@@ -1,5 +1,6 @@
 package com.anonchat.app
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -17,7 +18,13 @@ class BlockedUsersActivity : AppCompatActivity() {
     private lateinit var rvBlocked: RecyclerView
     private lateinit var tvEmpty: TextView
 
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_blocked_users)
 

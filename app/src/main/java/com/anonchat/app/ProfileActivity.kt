@@ -28,10 +28,19 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import java.io.ByteArrayOutputStream
 
+import android.content.Context
+
 class ProfileActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_FROM_LOGIN = "EXTRA_FROM_LOGIN"
+    }
+
+    private var currentLang: String? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
     }
 
     private lateinit var toolbar: MaterialToolbar
@@ -84,6 +93,8 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        currentLang = LocaleHelper.getLanguage(this)
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
@@ -92,10 +103,19 @@ class ProfileActivity : AppCompatActivity() {
         setupProfilePicture()
         setupGenderSpinner()
         setupClickListeners()
-        setupLogout()
-        setupBlockedUsers()
+        setupAccountPrivacy()
+        setupThemeSelector()
         fromLogin = intent.getBooleanExtra(EXTRA_FROM_LOGIN, false)
         loadProfile()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val lang = LocaleHelper.getLanguage(this)
+        if (currentLang != null && currentLang != lang) {
+            currentLang = lang
+            recreate()
+        }
     }
 
     private fun initViews() {
@@ -465,14 +485,54 @@ class ProfileActivity : AppCompatActivity() {
         btnSaveProfile.isEnabled = true
     }
 
-    // --- Blocked Users ---
+    // --- Account & Privacy ---
 
-    private fun setupBlockedUsers() {
-        val btnShowBlocked = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnShowBlocked)
-        btnShowBlocked.setOnClickListener {
-            val intent = Intent(this, BlockedUsersActivity::class.java)
+    private fun setupAccountPrivacy() {
+        val btnOpenAccountPrivacy = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnOpenAccountPrivacy)
+        btnOpenAccountPrivacy?.setOnClickListener {
+            val intent = Intent(this, AccountPrivacyActivity::class.java)
             startActivity(intent)
         }
+    }
+
+    private fun setupThemeSelector() {
+        val themeBlue = findViewById<View>(R.id.themeBlue) ?: return
+        val themeGreen = findViewById<View>(R.id.themeGreen) ?: return
+        val themePurple = findViewById<View>(R.id.themePurple) ?: return
+        val themeRed = findViewById<View>(R.id.themeRed) ?: return
+        val themeTeal = findViewById<View>(R.id.themeTeal) ?: return
+        val themeDark = findViewById<View>(R.id.themeDark) ?: return
+
+        val checkBlue = findViewById<View>(R.id.checkBlue)
+        val checkGreen = findViewById<View>(R.id.checkGreen)
+        val checkPurple = findViewById<View>(R.id.checkPurple)
+        val checkRed = findViewById<View>(R.id.checkRed)
+        val checkTeal = findViewById<View>(R.id.checkTeal)
+        val checkDark = findViewById<View>(R.id.checkDark)
+
+        val updateChecks = { selectedKey: String ->
+            checkBlue?.visibility = if (selectedKey == ThemeManager.THEME_BLUE) View.VISIBLE else View.GONE
+            checkGreen?.visibility = if (selectedKey == ThemeManager.THEME_GREEN) View.VISIBLE else View.GONE
+            checkPurple?.visibility = if (selectedKey == ThemeManager.THEME_PURPLE) View.VISIBLE else View.GONE
+            checkRed?.visibility = if (selectedKey == ThemeManager.THEME_RED) View.VISIBLE else View.GONE
+            checkTeal?.visibility = if (selectedKey == ThemeManager.THEME_TEAL) View.VISIBLE else View.GONE
+            checkDark?.visibility = if (selectedKey == ThemeManager.THEME_DARK) View.VISIBLE else View.GONE
+        }
+
+        updateChecks(ThemeManager.getSelectedTheme(this))
+
+        val selectTheme = { key: String ->
+            ThemeManager.setSelectedTheme(this, key)
+            updateChecks(key)
+            recreate()
+        }
+
+        themeBlue.setOnClickListener { selectTheme(ThemeManager.THEME_BLUE) }
+        themeGreen.setOnClickListener { selectTheme(ThemeManager.THEME_GREEN) }
+        themePurple.setOnClickListener { selectTheme(ThemeManager.THEME_PURPLE) }
+        themeRed.setOnClickListener { selectTheme(ThemeManager.THEME_RED) }
+        themeTeal.setOnClickListener { selectTheme(ThemeManager.THEME_TEAL) }
+        themeDark.setOnClickListener { selectTheme(ThemeManager.THEME_DARK) }
     }
 
     // --- UI Helpers ---

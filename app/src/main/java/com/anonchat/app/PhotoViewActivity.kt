@@ -7,11 +7,18 @@ import android.view.WindowManager
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 
+import android.content.Context
+
 /**
  * Fullscreen photo viewer with screenshot protection.
  * FLAG_SECURE prevents screenshots, screen recording, and task switcher previews.
  */
 class PhotoViewActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
 
     companion object {
         const val EXTRA_IMAGE_BASE64 = "image_base64"

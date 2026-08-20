@@ -1,5 +1,6 @@
 package com.anonchat.app
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -15,6 +16,11 @@ import com.google.firebase.auth.FirebaseAuth
  */
 class WelcomeActivity : AppCompatActivity() {
 
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
+
     private var hasNavigated = false
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val timeoutRunnable = Runnable {
@@ -24,6 +30,14 @@ class WelcomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val hasSelectedLang = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+            .getBoolean("has_selected_language", false)
+        if (!hasSelectedLang) {
+            startActivity(Intent(this, LanguageSelectionActivity::class.java))
+            finish()
+            return
+        }
 
         if (AuthActivity.TEST_MODE) {
             // Test mode: OTP is bypassed, so route on the local session instead of Firebase Auth.

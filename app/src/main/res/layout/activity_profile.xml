@@ -89,7 +89,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:padding="4dp"
-                            android:text="Change photo"
+                            android:text="@string/profile_change_photo"
                             android:textColor="@color/primary"
                             android:textSize="12sp"
                             android:textStyle="bold" />
@@ -100,7 +100,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="12dp"
                             android:padding="4dp"
-                            android:text="Remove Photo"
+                            android:text="@string/profile_remove_photo"
                             android:textColor="#FFD32F2F"
                             android:textSize="12sp"
                             android:textStyle="bold"
@@ -134,6 +134,15 @@
                     android:orientation="vertical"
                     android:padding="20dp">
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:text="@string/personal_details"
+                        android:textColor="@color/on_surface"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
                     <!-- View Mode Container (Default) -->
                     <LinearLayout
                         android:id="@+id/llProfileViewMode"
@@ -154,7 +163,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Display Name"
+                                android:text="@string/display_name"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
@@ -182,7 +191,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Gender"
+                                android:text="@string/gender"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
@@ -191,7 +200,7 @@
                                 android:id="@+id/tvViewGender"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Not specified"
+                                android:text="@string/not_specified"
                                 android:textColor="@color/on_surface"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
@@ -210,7 +219,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Age"
+                                android:text="@string/age"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
@@ -219,7 +228,7 @@
                                 android:id="@+id/tvViewAge"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Not specified"
+                                android:text="@string/not_specified"
                                 android:textColor="@color/on_surface"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
@@ -238,7 +247,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="City"
+                                android:text="@string/city"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
@@ -247,7 +256,7 @@
                                 android:id="@+id/tvViewCity"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Not specified"
+                                android:text="@string/not_specified"
                                 android:textColor="@color/on_surface"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
@@ -258,7 +267,7 @@
                             android:id="@+id/btnEditProfileDetails"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
-                            android:text="✏️ Edit Profile Details"
+                            android:text="@string/btn_edit_profile"
                             android:textColor="@color/primary"
                             android:textSize="14sp"
                             android:textStyle="bold"
@@ -361,7 +370,7 @@
                                 android:layout_height="50dp"
                                 android:layout_marginEnd="6dp"
                                 android:layout_weight="1"
-                                android:text="@string/profile_save"
+                                android:text="@string/btn_save_changes"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
                                 app:backgroundTint="@color/primary"
@@ -429,42 +438,192 @@
                 android:textSize="13sp"
                 android:visibility="gone" />
 
-            <!-- Divider -->
-            <View
+            <!-- App Theme Color Card -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginVertical="24dp"
-                android:background="#0F000000" />
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="@color/surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
 
-            <!-- Blocked Users -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnShowBlocked"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:gravity="start|center_vertical"
-                android:text="Blocked Users  ▸"
-                android:textColor="@color/on_surface"
-                android:textSize="14sp"
-                app:icon="@drawable/ic_back"
-                app:iconGravity="end"
-                app:iconTint="@color/text_secondary"
-                app:rippleColor="@color/primary_light" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
 
-            <!-- Logout -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnLogout"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/app_theme_color"
+                        android:textColor="@color/on_surface"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="16dp"
+                        android:text="@string/choose_theme_sub"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <!-- Blue Theme -->
+                        <FrameLayout
+                            android:id="@+id/themeBlue"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_marginHorizontal="4dp"
+                            android:background="@drawable/bg_circle_blue"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/checkBlue"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_check_sent"
+                                app:tint="@color/white" />
+                        </FrameLayout>
+
+                        <!-- Green Theme -->
+                        <FrameLayout
+                            android:id="@+id/themeGreen"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_marginHorizontal="4dp"
+                            android:background="@drawable/bg_circle_green"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/checkGreen"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_check_sent"
+                                android:visibility="gone"
+                                app:tint="@color/white" />
+                        </FrameLayout>
+
+                        <!-- Purple Theme -->
+                        <FrameLayout
+                            android:id="@+id/themePurple"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_marginHorizontal="4dp"
+                            android:background="@drawable/bg_circle_purple"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/checkPurple"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_check_sent"
+                                android:visibility="gone"
+                                app:tint="@color/white" />
+                        </FrameLayout>
+
+                        <!-- Red Theme -->
+                        <FrameLayout
+                            android:id="@+id/themeRed"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_marginHorizontal="4dp"
+                            android:background="@drawable/bg_circle_red"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/checkRed"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_check_sent"
+                                android:visibility="gone"
+                                app:tint="@color/white" />
+                        </FrameLayout>
+
+                        <!-- Teal Theme -->
+                        <FrameLayout
+                            android:id="@+id/themeTeal"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_marginHorizontal="4dp"
+                            android:background="@drawable/bg_circle_teal"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/checkTeal"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_check_sent"
+                                android:visibility="gone"
+                                app:tint="@color/white" />
+                        </FrameLayout>
+
+                        <!-- Dark Theme -->
+                        <FrameLayout
+                            android:id="@+id/themeDark"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:layout_marginHorizontal="4dp"
+                            android:background="@drawable/bg_circle_dark"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/checkDark"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_check_sent"
+                                android:visibility="gone"
+                                app:tint="@color/white" />
+                        </FrameLayout>
+
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Account & Privacy Single Card -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="16dp"
-                android:text="@string/logout"
-                android:textColor="#FFD32F2F"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                app:cornerRadius="12dp"
-                app:strokeColor="#30D32F2F"
-                app:strokeWidth="1dp" />
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="@color/surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOpenAccountPrivacy"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:gravity="start|center_vertical"
+                    android:paddingHorizontal="20dp"
+                    android:text="@string/account_privacy"
+                    android:textColor="@color/on_surface"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    app:icon="@drawable/ic_back"
+                    app:iconGravity="end"
+                    app:iconTint="@color/text_secondary"
+                    app:rippleColor="@color/primary_light" />
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </ScrollView>

@@ -1,6 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AnonChat</string>
+    <string name="choose_lang_title">Choose Language / भाषा चुनें</string>
+    <string name="choose_lang_sub">Select your preferred language to continue</string>
+    <string name="btn_continue">Continue ▸</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="tab_chats">💬 Chats</string>
+    <string name="tab_profile">👤 Profile</string>
+    <string name="nav_chats">Chats</string>
+    <string name="nav_profile">Profile</string>
+    <string name="enter_chat_room">Live Chat</string>
+    <string name="saved_chats">Saved Chats</string>
+    <string name="no_saved_chats">No saved chats yet</string>
+    <string name="no_saved_chats_hint">Join the chat room and save conversations</string>
+    <string name="personal_details">Personal Details</string>
+    <string name="display_name">Display Name</string>
+    <string name="gender">Gender</string>
+    <string name="age">Age</string>
+    <string name="city">City</string>
+    <string name="btn_edit_profile">✏️ Edit Profile Details</string>
+    <string name="btn_save_changes">Save Changes</string>
+    <string name="app_theme_color">🎨 App Theme Color</string>
+    <string name="choose_theme_sub">Choose your preferred color theme or Dark mode</string>
+    <string name="account_privacy">🔒 Account &amp; Privacy</string>
+    <string name="app_language">🌐 App Language</string>
+    <string name="blocked_users">🚫 Blocked Users</string>
+    <string name="logout">🚪 Logout</string>
+    <string name="delete_account">🗑️ Delete Account</string>
+    <string name="delete_account_confirm_title">Delete Account?</string>
+    <string name="delete_account_confirm_message">Are you sure you want to delete your account? This action is permanent and will remove your data from the database.</string>
+    <string name="delete_account_confirm">Delete</string>
+    <string name="no_blocked_users">No blocked users</string>
+    <string name="unblock">Unblock</string>
     <string name="hint_message">Type a message…</string>
     <string name="send">Send</string>
     <string name="chat_room_title">AnonChat</string>
@@ -19,12 +51,6 @@
     <string name="searching_subtitle">Looking for a random stranger</string>
     <string name="connected_with">Chatting with %s</string>
     <string name="stranger_disconnected">Stranger has disconnected</string>
-    <string name="enter_chat_room">Live Chat</string>
-    <string name="saved_chats">Saved Chats</string>
-    <string name="no_saved_chats">No saved chats yet</string>
-    <string name="no_saved_chats_hint">Join the chat room and save conversations</string>
-
-    <!-- Auth Screen -->
     <string name="auth_heading">Verify your phone</string>
     <string name="auth_subtitle">We\'ll send a one-time code to verify your number. Your phone number stays private.</string>
     <string name="auth_phone_hint">Phone number</string>
@@ -34,8 +60,6 @@
     <string name="auth_resend_code">Resend Code</string>
     <string name="auth_countdown">Resend in %ds</string>
     <string name="auth_test_mode_notice">TEST MODE: OTP verification is bypassed. Any phone number and any code will sign you in.</string>
-
-    <!-- Profile Screen -->
     <string name="profile_title">Profile</string>
     <string name="profile_name_hint">Display Name</string>
     <string name="profile_gender_hint">Gender</string>
@@ -46,6 +70,7 @@
     <string name="profile_saved">Profile saved!</string>
     <string name="profile_private_note">Your gender, age, and city are private and never shared with other users.</string>
     <string name="profile_change_photo">Change Photo</string>
+    <string name="profile_remove_photo">Remove Photo</string>
     <string name="profile_header_title">Your Profile</string>
     <string name="profile_header_subtitle">Update your display name and optional details. You can continue without saving.</string>
     <string name="profile_edit">Edit Profile</string>
@@ -53,8 +78,6 @@
     <string name="profile_gender_helper">Optional — helps match you better.</string>
     <string name="profile_age_helper">Optional — must be between 13 and 120.</string>
     <string name="profile_city_helper">Optional — city is kept private.</string>
-
-    <!-- Partner Profile -->
     <string name="partner_profile_title">Profile details</string>
     <string name="partner_profile_tap_to_enlarge">Tap to view full image</string>
     <string name="partner_profile_details">Saved profile details from your chat partner.</string>
@@ -62,11 +85,12 @@
     <string name="partner_profile_age">Age</string>
     <string name="partner_profile_city">City</string>
     <string name="partner_profile_back">Back</string>
-
-    <!-- Chat List -->
-    <string name="logout">Logout</string>
     <string name="logout_confirm_title">Logout?</string>
     <string name="logout_confirm_message">You will need to verify your phone number again to log back in.</string>
     <string name="logout_confirm">Logout</string>
     <string name="cancel">Cancel</string>
+    <string name="welcome_tagline">Chat freely. Stay anonymous.</string>
+    <string name="session_identity">Your identity for this session</string>
+    <string name="no_one_knows">No one knows who you are 🎭</string>
+    <string name="not_specified">Not specified</string>
 </resources>

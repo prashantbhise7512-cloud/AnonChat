@@ -23,7 +23,14 @@ import com.google.android.material.button.MaterialButton
 import com.google.firebase.database.*
 import java.util.UUID
 
+import android.content.Context
+
 class MainActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
 
     private val userId: String by lazy {
         TestSession.currentUserId(this) ?: TestSession.uid(this) ?: UUID.randomUUID().toString()
@@ -46,6 +53,35 @@ class MainActivity : AppCompatActivity() {
     private var matchListenerUser2: ChildEventListener? = null
     private var activeThreadId: String? = null
 
+    private val photoPickerLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let { processAndSendPhoto(it) }
+    }
+
+    private val cameraLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: android.graphics.Bitmap? ->
+        bitmap?.let { processAndSendPhotoBitmap(it) }
+    }
+
+    private fun showPhotoSourceDialog() {
+        if (currentSessionId == null) {
+            Toast.makeText(this, "Connect to a chat room to send photos", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val options = arrayOf("📷 Take Photo (Camera)", "🖼️ Choose from Gallery")
+        AlertDialog.Builder(this)
+            .setTitle("Attach Photo")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> cameraLauncher.launch(null)
+                    1 -> photoPickerLauncher.launch("image/*")
+                }
+            }
+            .show()
+    }
+
     private val messages = mutableListOf<ChatMessage>()
     private lateinit var adapter: MessageAdapter
 
@@ -67,6 +103,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLeaveChat: MaterialButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -119,26 +156,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMessageOptionsDialog(message: ChatMessage) {
-        val options = mutableListOf<String>()
-        options.add("Reply")
-        val canEdit = (message.senderId == userId) && (message.type == "text") && !message.isDeleted
-        if (canEdit) {
-            options.add("Edit Message")
-        }
-        if (!message.isDeleted) {
-            options.add("Delete Message")
+        val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_message_options, null)
+
+        val tvOptionsSender = view.findViewById<TextView>(R.id.tvOptionsSender)
+        val tvOptionsSnippet = view.findViewById<TextView>(R.id.tvOptionsSnippet)
+        val optionReply = view.findViewById<LinearLayout>(R.id.optionReply)
+        val optionEdit = view.findViewById<LinearLayout>(R.id.optionEdit)
+        val optionDelete = view.findViewById<LinearLayout>(R.id.optionDelete)
+
+        val senderName = if (message.senderId == userId) "You" else (currentPartnerName ?: "Stranger")
+        val snippet = when (message.type) {
+            "voice" -> "🎤 Voice message"
+            "photo" -> "📷 Photo"
+            else -> message.message
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Message Options")
-            .setItems(options.toTypedArray()) { _, which ->
-                when (options[which]) {
-                    "Reply" -> setReplyMessage(message)
-                    "Edit Message" -> showEditMessageDialog(message)
-                    "Delete Message" -> confirmDeleteMessage(message)
-                }
+        tvOptionsSender.text = senderName
+        tvOptionsSnippet.text = snippet
+
+        optionReply.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            setReplyMessage(message)
+        }
+
+        val canEdit = (message.senderId == userId) && (message.type == "text") && !message.isDeleted
+        if (canEdit) {
+            optionEdit.visibility = View.VISIBLE
+            optionEdit.setOnClickListener {
+                bottomSheetDialog.dismiss()
+                showEditMessageDialog(message)
             }
-            .show()
+        } else {
+            optionEdit.visibility = View.GONE
+        }
+
+        if (!message.isDeleted) {
+            optionDelete.visibility = View.VISIBLE
+            optionDelete.setOnClickListener {
+                bottomSheetDialog.dismiss()
+                confirmDeleteMessage(message)
+            }
+        } else {
+            optionDelete.visibility = View.GONE
+        }
+
+        bottomSheetDialog.setContentView(view)
+        bottomSheetDialog.show()
     }
 
     private fun showEditMessageDialog(message: ChatMessage) {
@@ -260,6 +324,89 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.btnCloseReplyPreview)?.setOnClickListener {
             clearReplyMessage()
         }
+        findViewById<ImageView>(R.id.btnAttachPhoto)?.setOnClickListener {
+            showPhotoSourceDialog()
+        }
+    }
+
+    private fun processAndSendPhoto(uri: android.net.Uri) {
+        try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return
+            val originalBitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            if (originalBitmap == null) return
+
+            processAndSendPhotoBitmap(originalBitmap)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Failed to load photo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun processAndSendPhotoBitmap(originalBitmap: android.graphics.Bitmap) {
+        try {
+            val maxDimension = 1024
+            val width = originalBitmap.width
+            val height = originalBitmap.height
+            val scaledBitmap = if (width > maxDimension || height > maxDimension) {
+                val scale = maxDimension.toFloat() / Math.max(width, height)
+                val newWidth = (width * scale).toInt()
+                val newHeight = (height * scale).toInt()
+                android.graphics.Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, true)
+            } else {
+                originalBitmap
+            }
+
+            val baos = java.io.ByteArrayOutputStream()
+            scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, baos)
+            val imageBytes = baos.toByteArray()
+            val base64Image = android.util.Base64.encodeToString(imageBytes, android.util.Base64.DEFAULT)
+
+            sendPhotoMessage(base64Image)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Failed to process photo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun sendPhotoMessage(imageDataBase64: String) {
+        val sid = currentSessionId ?: run {
+            Toast.makeText(this, "Connect to a chat room to send photos", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val reply = replyingMessage
+        val msg = ChatMessage(
+            id = UUID.randomUUID().toString(),
+            senderId = userId,
+            senderName = userName,
+            message = "📷 Photo",
+            timestamp = System.currentTimeMillis(),
+            status = "sent",
+            type = "photo",
+            imageData = imageDataBase64,
+            replyToId = reply?.id,
+            replyToSender = reply?.let { if (it.senderId == userId) "You" else (currentPartnerName ?: "Stranger") },
+            replyToText = reply?.let { if (it.type == "voice") "🎤 Voice message" else if (it.type == "photo") "📷 Photo" else it.message }
+        )
+
+        messages.add(msg)
+        adapter.submitList(messages.toList())
+        recyclerMessages.scrollToPosition(messages.size - 1)
+        clearReplyMessage()
+
+        val payload = mutableMapOf<String, Any>(
+            "id" to msg.id,
+            "senderId" to msg.senderId,
+            "senderName" to msg.senderName,
+            "message" to msg.message,
+            "timestamp" to msg.timestamp,
+            "status" to "sent",
+            "type" to "photo",
+            "imageData" to imageDataBase64
+        )
+        msg.replyToId?.let { payload["replyToId"] = it }
+        msg.replyToSender?.let { payload["replyToSender"] = it }
+        msg.replyToText?.let { payload["replyToText"] = it }
+
+        database.child("sessions").child(sid).child("messages").push().setValue(payload)
     }
 
     private fun setupActionButtons() {
@@ -930,6 +1077,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        ThemeManager.applyTheme(this)
+        val color = ThemeManager.getPrimaryColor(this)
+        findViewById<View>(R.id.toolbar)?.setBackgroundColor(color)
         MessageNotificationService.isLiveChatActive = true
         activeThreadId?.let { MessageNotificationService.activeThreadId = it }
     }

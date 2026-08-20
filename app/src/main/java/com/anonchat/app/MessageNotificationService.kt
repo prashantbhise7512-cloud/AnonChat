@@ -159,6 +159,15 @@ class MessageNotificationService : Service() {
                 val senderName = snapshot.child("senderName").getValue(String::class.java) ?: "Someone"
                 val text = snapshot.child("message").getValue(String::class.java) ?: ""
                 val ts = snapshot.child("timestamp").getValue(Long::class.java) ?: System.currentTimeMillis()
+                val type = snapshot.child("type").getValue(String::class.java) ?: "text"
+                val audioData = snapshot.child("audioData").getValue(String::class.java)
+                val imageData = snapshot.child("imageData").getValue(String::class.java)
+                val durationMs = snapshot.child("durationMs").getValue(Long::class.java) ?: 0L
+                val replyToId = snapshot.child("replyToId").getValue(String::class.java)
+                val replyToSender = snapshot.child("replyToSender").getValue(String::class.java)
+                val replyToText = snapshot.child("replyToText").getValue(String::class.java)
+                val isEdited = snapshot.child("isEdited").getValue(Boolean::class.java) ?: false
+                val isDeleted = snapshot.child("isDeleted").getValue(Boolean::class.java) ?: false
 
                 // Keep thread registered under /user_threads/$currentUserId
                 UserDatabase.registerUserThread(currentUserId, senderId, threadId)
@@ -167,7 +176,23 @@ class MessageNotificationService : Service() {
                     .find { it.threadId == threadId || (it.partnerAccountId == senderId && !it.partnerAccountId.isNullOrBlank()) }
 
                 val targetChatId: String
-                val msg = ChatMessage(msgId, senderId, senderName, text, ts, "delivered")
+                val msg = ChatMessage(
+                    id = msgId,
+                    senderId = senderId,
+                    senderName = senderName,
+                    message = text,
+                    timestamp = ts,
+                    status = "delivered",
+                    type = type,
+                    audioData = audioData,
+                    imageData = imageData,
+                    durationMs = durationMs,
+                    replyToId = replyToId,
+                    replyToSender = replyToSender,
+                    replyToText = replyToText,
+                    isEdited = isEdited,
+                    isDeleted = isDeleted
+                )
 
                 if (existingChat != null) {
                     targetChatId = existingChat.id
@@ -222,7 +247,12 @@ class MessageNotificationService : Service() {
                         || isLiveChatActive
 
                 if (!isUserInThisChat) {
-                    showMessageNotification(targetChatId, senderName, text)
+                    val notifText = when (type) {
+                        "voice" -> "🎤 Voice message"
+                        "photo" -> "📷 Photo"
+                        else -> text
+                    }
+                    showMessageNotification(targetChatId, senderName, notifText)
                 }
             }
 

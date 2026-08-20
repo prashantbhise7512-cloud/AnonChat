@@ -29,6 +29,11 @@ import java.util.concurrent.TimeUnit
 
 class AuthActivity : AppCompatActivity() {
 
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
+
     companion object {
         // Set to true to bypass Firebase Auth (any phone + any 6-digit OTP works)
         // Set to false for production with real Firebase Auth

@@ -33,6 +33,8 @@ class MessageAdapter(
         private const val VIEW_TYPE_SYSTEM = 3
         private const val VIEW_TYPE_VOICE_MINE = 4
         private const val VIEW_TYPE_VOICE_OTHER = 5
+        private const val VIEW_TYPE_PHOTO_MINE = 6
+        private const val VIEW_TYPE_PHOTO_OTHER = 7
 
         private var activePlayer: MediaPlayer? = null
         private var activePlayingId: String? = null
@@ -46,6 +48,8 @@ class MessageAdapter(
             item.senderId == "system" -> VIEW_TYPE_SYSTEM
             item.type == "voice" && item.senderId == currentUserId -> VIEW_TYPE_VOICE_MINE
             item.type == "voice" -> VIEW_TYPE_VOICE_OTHER
+            item.type == "photo" && item.senderId == currentUserId -> VIEW_TYPE_PHOTO_MINE
+            item.type == "photo" -> VIEW_TYPE_PHOTO_OTHER
             item.senderId == currentUserId -> VIEW_TYPE_MINE
             else -> VIEW_TYPE_OTHER
         }
@@ -58,7 +62,9 @@ class MessageAdapter(
             VIEW_TYPE_OTHER -> OtherViewHolder(inflater.inflate(R.layout.item_message_other, parent, false))
             VIEW_TYPE_SYSTEM -> SystemViewHolder(inflater.inflate(R.layout.item_message_system, parent, false))
             VIEW_TYPE_VOICE_MINE -> VoiceMineViewHolder(inflater.inflate(R.layout.item_message_voice_mine, parent, false))
-            else -> VoiceOtherViewHolder(inflater.inflate(R.layout.item_message_voice_other, parent, false))
+            VIEW_TYPE_VOICE_OTHER -> VoiceOtherViewHolder(inflater.inflate(R.layout.item_message_voice_other, parent, false))
+            VIEW_TYPE_PHOTO_MINE -> PhotoMineViewHolder(inflater.inflate(R.layout.item_message_photo_mine, parent, false))
+            else -> PhotoOtherViewHolder(inflater.inflate(R.layout.item_message_photo_other, parent, false))
         }
     }
 
@@ -78,6 +84,8 @@ class MessageAdapter(
             is SystemViewHolder -> holder.bind(message)
             is VoiceMineViewHolder -> holder.bind(message)
             is VoiceOtherViewHolder -> holder.bind(message)
+            is PhotoMineViewHolder -> holder.bind(message)
+            is PhotoOtherViewHolder -> holder.bind(message)
         }
     }
 
@@ -315,6 +323,74 @@ class MessageAdapter(
         }
         activeUpdateRunnable = runnable
         handler.post(runnable)
+    }
+
+    inner class PhotoMineViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val ivPhotoMsg: ImageView = itemView.findViewById(R.id.ivPhotoMsg)
+        private val tvTimestamp: TextView = itemView.findViewById(R.id.tvTimestamp)
+        private val ivStatus: ImageView = itemView.findViewById(R.id.ivStatus)
+
+        fun bind(message: ChatMessage) {
+            bindQuotedView(itemView, message)
+            tvTimestamp.text = formatTimestamp(message.timestamp, message.isEdited)
+            bindTicks(ivStatus, message.status)
+
+            val base64 = message.imageData
+            if (!base64.isNullOrEmpty()) {
+                try {
+                    val bytes = Base64.decode(base64, Base64.DEFAULT)
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ivPhotoMsg.setImageBitmap(bitmap)
+                } catch (_: Exception) {
+                    ivPhotoMsg.setImageResource(R.drawable.ic_default_avatar)
+                }
+            } else {
+                ivPhotoMsg.setImageResource(R.drawable.ic_default_avatar)
+            }
+
+            ivPhotoMsg.setOnClickListener {
+                if (!base64.isNullOrEmpty()) {
+                    val context = itemView.context
+                    val intent = android.content.Intent(context, com.anonchat.app.PhotoViewActivity::class.java).apply {
+                        putExtra(com.anonchat.app.PhotoViewActivity.EXTRA_IMAGE_BASE64, base64)
+                    }
+                    context.startActivity(intent)
+                }
+            }
+        }
+    }
+
+    inner class PhotoOtherViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val ivPhotoMsg: ImageView = itemView.findViewById(R.id.ivPhotoMsg)
+        private val tvTimestamp: TextView = itemView.findViewById(R.id.tvTimestamp)
+
+        fun bind(message: ChatMessage) {
+            bindQuotedView(itemView, message)
+            tvTimestamp.text = formatTimestamp(message.timestamp, message.isEdited)
+
+            val base64 = message.imageData
+            if (!base64.isNullOrEmpty()) {
+                try {
+                    val bytes = Base64.decode(base64, Base64.DEFAULT)
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ivPhotoMsg.setImageBitmap(bitmap)
+                } catch (_: Exception) {
+                    ivPhotoMsg.setImageResource(R.drawable.ic_default_avatar)
+                }
+            } else {
+                ivPhotoMsg.setImageResource(R.drawable.ic_default_avatar)
+            }
+
+            ivPhotoMsg.setOnClickListener {
+                if (!base64.isNullOrEmpty()) {
+                    val context = itemView.context
+                    val intent = android.content.Intent(context, com.anonchat.app.PhotoViewActivity::class.java).apply {
+                        putExtra(com.anonchat.app.PhotoViewActivity.EXTRA_IMAGE_BASE64, base64)
+                    }
+                    context.startActivity(intent)
+                }
+            }
+        }
     }
 
     class MessageDiffCallback : DiffUtil.ItemCallback<ChatMessage>() {

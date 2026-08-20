@@ -13,7 +13,7 @@
         android:background="@color/primary"
         app:navigationIcon="@drawable/ic_back"
         app:navigationIconTint="@color/white"
-        app:title="Blocked Users"
+        app:title="@string/blocked_users"
         app:titleTextColor="@color/white" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -30,7 +30,7 @@
         android:layout_height="wrap_content"
         android:gravity="center"
         android:padding="48dp"
-        android:text="No blocked users"
+        android:text="@string/no_blocked_users"
         android:textColor="@color/text_secondary"
         android:textSize="15sp"
         android:visibility="gone" />

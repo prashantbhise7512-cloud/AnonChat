@@ -1,5 +1,6 @@
 package com.anonchat.app
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -21,6 +22,13 @@ import com.google.firebase.database.ValueEventListener
 
 class ChatListActivity : AppCompatActivity() {
 
+    private var currentLang: String? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
+
     private lateinit var toolbar: MaterialToolbar
     private lateinit var recyclerSavedChats: RecyclerView
     private lateinit var emptyState: LinearLayout
@@ -37,6 +45,8 @@ class ChatListActivity : AppCompatActivity() {
     private lateinit var swipeRefreshSavedChats: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        currentLang = LocaleHelper.getLanguage(this)
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat_list)
 
@@ -105,6 +115,17 @@ class ChatListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        val lang = LocaleHelper.getLanguage(this)
+        if (currentLang != null && currentLang != lang) {
+            currentLang = lang
+            recreate()
+            return
+        }
+        ThemeManager.applyTheme(this)
+        val color = ThemeManager.getPrimaryColor(this)
+        findViewById<View>(R.id.toolbar)?.setBackgroundColor(color)
+        findViewById<com.google.android.material.button.MaterialButton>(R.id.btnJoinRoom)?.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(color)
         // Re-select chats tab when returning from profile
         bottomNav.selectedItemId = R.id.nav_chats
         loadSavedChats()
@@ -251,13 +272,30 @@ class ChatListActivity : AppCompatActivity() {
 
     private fun parseThreadMessage(snapshot: com.google.firebase.database.DataSnapshot): com.anonchat.app.model.ChatMessage? {
         return try {
+            val type = snapshot.child("type").getValue(String::class.java) ?: "text"
+            val audioData = snapshot.child("audioData").getValue(String::class.java)
+            val durationMs = snapshot.child("durationMs").getValue(Long::class.java) ?: 0L
+            val replyToId = snapshot.child("replyToId").getValue(String::class.java)
+            val replyToSender = snapshot.child("replyToSender").getValue(String::class.java)
+            val replyToText = snapshot.child("replyToText").getValue(String::class.java)
+            val isEdited = snapshot.child("isEdited").getValue(Boolean::class.java) ?: false
+            val isDeleted = snapshot.child("isDeleted").getValue(Boolean::class.java) ?: false
+
             com.anonchat.app.model.ChatMessage(
                 id = snapshot.child("id").getValue(String::class.java) ?: return null,
                 senderId = snapshot.child("senderId").getValue(String::class.java) ?: return null,
                 senderName = snapshot.child("senderName").getValue(String::class.java) ?: return null,
-                message = snapshot.child("message").getValue(String::class.java) ?: return null,
+                message = snapshot.child("message").getValue(String::class.java) ?: "",
                 timestamp = snapshot.child("timestamp").getValue(Long::class.java) ?: 0L,
-                status = snapshot.child("status").getValue(String::class.java) ?: "sent"
+                status = snapshot.child("status").getValue(String::class.java) ?: "sent",
+                type = type,
+                audioData = audioData,
+                durationMs = durationMs,
+                replyToId = replyToId,
+                replyToSender = replyToSender,
+                replyToText = replyToText,
+                isEdited = isEdited,
+                isDeleted = isDeleted
             )
         } catch (e: Exception) {
             null

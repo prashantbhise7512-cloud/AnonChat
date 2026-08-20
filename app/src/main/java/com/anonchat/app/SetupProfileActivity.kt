@@ -16,12 +16,19 @@ import com.google.firebase.database.FirebaseDatabase
 import de.hdodenhof.circleimageview.CircleImageView
 import java.io.ByteArrayOutputStream
 
+import android.content.Context
+
 /**
  * Lightweight first-time profile setup shown after OTP verification.
  * Only asks for: photo, name, gender, age.
  * User can save or skip.
  */
 class SetupProfileActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
 
     private val genderOptions = listOf("— Select —", "Male", "Female", "Other", "Prefer not to say")
     private var avatarBase64: String? = null

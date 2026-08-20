@@ -27,7 +27,14 @@ import com.google.firebase.database.ValueEventListener
 import de.hdodenhof.circleimageview.CircleImageView
 import java.util.UUID
 
+import android.content.Context
+
 class SavedChatActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
 
     companion object {
         private const val REQUEST_RECORD_AUDIO = 201
@@ -55,7 +62,33 @@ class SavedChatActivity : AppCompatActivity() {
 
     private var replyingMessage: ChatMessage? = null
 
+    private val photoPickerLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let { processAndSendPhoto(it) }
+    }
+
+    private val cameraLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: android.graphics.Bitmap? ->
+        bitmap?.let { processAndSendPhotoBitmap(it) }
+    }
+
+    private fun showPhotoSourceDialog() {
+        val options = arrayOf("📷 Take Photo (Camera)", "🖼️ Choose from Gallery")
+        AlertDialog.Builder(this)
+            .setTitle("Attach Photo")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> cameraLauncher.launch(null)
+                    1 -> photoPickerLauncher.launch("image/*")
+                }
+            }
+            .show()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_saved_chat)
 
@@ -73,9 +106,14 @@ class SavedChatActivity : AppCompatActivity() {
         recyclerMessages = findViewById(R.id.recyclerMessages)
         val editMessage = findViewById<EditText>(R.id.editMessage)
         val btnSend = findViewById<FrameLayout>(R.id.btnSend)
+        val btnAttachPhoto = findViewById<ImageView>(R.id.btnAttachPhoto)
         tvToolbarTitle = findViewById(R.id.tvToolbarTitle)
         tvToolbarSubtitle = findViewById(R.id.tvToolbarSubtitle)
         val btnCloseReplyPreview = findViewById<ImageView>(R.id.btnCloseReplyPreview)
+
+        btnAttachPhoto?.setOnClickListener {
+            showPhotoSourceDialog()
+        }
 
         btnCloseReplyPreview.setOnClickListener {
             clearReplyMessage()
@@ -209,26 +247,53 @@ class SavedChatActivity : AppCompatActivity() {
     }
 
     private fun showMessageOptionsDialog(message: ChatMessage) {
-        val options = mutableListOf<String>()
-        options.add("Reply")
-        val canEdit = (message.senderId == myId) && (message.type == "text") && !message.isDeleted
-        if (canEdit) {
-            options.add("Edit Message")
-        }
-        if (!message.isDeleted) {
-            options.add("Delete Message")
+        val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_message_options, null)
+
+        val tvOptionsSender = view.findViewById<TextView>(R.id.tvOptionsSender)
+        val tvOptionsSnippet = view.findViewById<TextView>(R.id.tvOptionsSnippet)
+        val optionReply = view.findViewById<LinearLayout>(R.id.optionReply)
+        val optionEdit = view.findViewById<LinearLayout>(R.id.optionEdit)
+        val optionDelete = view.findViewById<LinearLayout>(R.id.optionDelete)
+
+        val senderName = if (message.senderId == myId) "You" else (chat.partnerName.ifEmpty { "AnnoUser" })
+        val snippet = when (message.type) {
+            "voice" -> "🎤 Voice message"
+            "photo" -> "📷 Photo"
+            else -> message.message
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Message Options")
-            .setItems(options.toTypedArray()) { _, which ->
-                when (options[which]) {
-                    "Reply" -> setReplyMessage(message)
-                    "Edit Message" -> showEditMessageDialog(message)
-                    "Delete Message" -> confirmDeleteMessage(message)
-                }
+        tvOptionsSender.text = senderName
+        tvOptionsSnippet.text = snippet
+
+        optionReply.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            setReplyMessage(message)
+        }
+
+        val canEdit = (message.senderId == myId) && (message.type == "text") && !message.isDeleted
+        if (canEdit) {
+            optionEdit.visibility = View.VISIBLE
+            optionEdit.setOnClickListener {
+                bottomSheetDialog.dismiss()
+                showEditMessageDialog(message)
             }
-            .show()
+        } else {
+            optionEdit.visibility = View.GONE
+        }
+
+        if (!message.isDeleted) {
+            optionDelete.visibility = View.VISIBLE
+            optionDelete.setOnClickListener {
+                bottomSheetDialog.dismiss()
+                confirmDeleteMessage(message)
+            }
+        } else {
+            optionDelete.visibility = View.GONE
+        }
+
+        bottomSheetDialog.setContentView(view)
+        bottomSheetDialog.show()
     }
 
     private fun showEditMessageDialog(message: ChatMessage) {
@@ -463,6 +528,106 @@ class SavedChatActivity : AppCompatActivity() {
         }
     }
 
+    private fun processAndSendPhoto(uri: android.net.Uri) {
+        try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return
+            val originalBitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            if (originalBitmap == null) return
+
+            val maxDimension = 1024
+            val width = originalBitmap.width
+            val height = originalBitmap.height
+            val scaledBitmap = if (width > maxDimension || height > maxDimension) {
+                val scale = maxDimension.toFloat() / Math.max(width, height)
+                val newWidth = (width * scale).toInt()
+                val newHeight = (height * scale).toInt()
+                android.graphics.Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, true)
+            } else {
+                originalBitmap
+            }
+
+            val baos = java.io.ByteArrayOutputStream()
+            scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, baos)
+            val imageBytes = baos.toByteArray()
+            val base64Image = android.util.Base64.encodeToString(imageBytes, android.util.Base64.DEFAULT)
+
+            sendPhotoMessage(base64Image)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Failed to load photo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun processAndSendPhotoBitmap(originalBitmap: android.graphics.Bitmap) {
+        try {
+            val maxDimension = 1024
+            val width = originalBitmap.width
+            val height = originalBitmap.height
+            val scaledBitmap = if (width > maxDimension || height > maxDimension) {
+                val scale = maxDimension.toFloat() / Math.max(width, height)
+                val newWidth = (width * scale).toInt()
+                val newHeight = (height * scale).toInt()
+                android.graphics.Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, true)
+            } else {
+                originalBitmap
+            }
+
+            val baos = java.io.ByteArrayOutputStream()
+            scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, baos)
+            val imageBytes = baos.toByteArray()
+            val base64Image = android.util.Base64.encodeToString(imageBytes, android.util.Base64.DEFAULT)
+
+            sendPhotoMessage(base64Image)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Failed to process camera photo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun sendPhotoMessage(imageDataBase64: String) {
+        val reply = replyingMessage
+        val msg = ChatMessage(
+            id = UUID.randomUUID().toString(),
+            senderId = myId,
+            senderName = chat.userName,
+            message = "📷 Photo",
+            timestamp = System.currentTimeMillis(),
+            status = "sent",
+            type = "photo",
+            imageData = imageDataBase64,
+            replyToId = reply?.id,
+            replyToSender = reply?.let { if (it.senderId == myId) "You" else (chat.partnerName.ifEmpty { "AnnoUser" }) },
+            replyToText = reply?.let { if (it.type == "voice") "🎤 Voice message" else if (it.type == "photo") "📷 Photo" else it.message }
+        )
+
+        messages.add(msg)
+        adapter.submitList(messages.toList())
+        recyclerMessages.scrollToPosition(messages.size - 1)
+        persistMessages()
+        clearReplyMessage()
+
+        val tid = getThreadId()
+        if (tid != null) {
+            UserDatabase.registerUserThread(myId, chat.partnerAccountId, tid)
+            val payload = mutableMapOf<String, Any>(
+                "id" to msg.id,
+                "senderId" to msg.senderId,
+                "senderName" to msg.senderName,
+                "message" to msg.message,
+                "timestamp" to msg.timestamp,
+                "status" to "sent",
+                "type" to "photo",
+                "imageData" to imageDataBase64
+            )
+            msg.replyToId?.let { payload["replyToId"] = it }
+            msg.replyToSender?.let { payload["replyToSender"] = it }
+            msg.replyToText?.let { payload["replyToText"] = it }
+
+            FirebaseDatabase.getInstance().reference
+                .child("threads").child(tid).child("messages")
+                .push().setValue(payload)
+        }
+    }
+
     private fun startRecordTimer() {
         stopRecordTimer()
         val tvRecordTimer = findViewById<TextView>(R.id.tvRecordTimer)
@@ -536,14 +701,13 @@ class SavedChatActivity : AppCompatActivity() {
         threadListener = object : ChildEventListener {
             override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
                 val msgId = snapshot.child("id").getValue(String::class.java) ?: return
-                if (messages.any { it.id == msgId }) return // already loaded
-
                 val senderId = snapshot.child("senderId").getValue(String::class.java) ?: return
                 val senderName = snapshot.child("senderName").getValue(String::class.java) ?: return
                 val text = snapshot.child("message").getValue(String::class.java) ?: ""
                 val ts = snapshot.child("timestamp").getValue(Long::class.java) ?: return
                 val type = snapshot.child("type").getValue(String::class.java) ?: "text"
                 val audioData = snapshot.child("audioData").getValue(String::class.java)
+                val imageData = snapshot.child("imageData").getValue(String::class.java)
                 val durationMs = snapshot.child("durationMs").getValue(Long::class.java) ?: 0L
 
                 val replyToId = snapshot.child("replyToId").getValue(String::class.java)
@@ -561,6 +725,7 @@ class SavedChatActivity : AppCompatActivity() {
                     status = if (senderId == myId) "sent" else "read",
                     type = type,
                     audioData = audioData,
+                    imageData = imageData,
                     durationMs = durationMs,
                     replyToId = replyToId,
                     replyToSender = replyToSender,
@@ -568,6 +733,17 @@ class SavedChatActivity : AppCompatActivity() {
                     isEdited = isEdited,
                     isDeleted = isDeleted
                 )
+
+                val existingIdx = messages.indexOfFirst { it.id == msgId }
+                if (existingIdx >= 0) {
+                    val existing = messages[existingIdx]
+                    if (existing.type != type || (existing.audioData.isNullOrEmpty() && !audioData.isNullOrEmpty()) || (existing.imageData.isNullOrEmpty() && !imageData.isNullOrEmpty())) {
+                        messages[existingIdx] = msg
+                        adapter.submitList(messages.toList())
+                        persistMessages()
+                    }
+                    return
+                }
 
                 messages.add(msg)
                 messages.sortBy { it.timestamp }
@@ -699,12 +875,17 @@ class SavedChatActivity : AppCompatActivity() {
         tvCity.text = chat.partnerCity ?: "Not specified"
 
         ivAvatar.setImageResource(R.drawable.ic_default_avatar)
-        if (!chat.partnerAvatar.isNullOrEmpty()) {
+
+        var fetchedAvatar: String? = chat.partnerAvatar
+        if (!fetchedAvatar.isNullOrEmpty()) {
             try {
-                val bytes = android.util.Base64.decode(chat.partnerAvatar, android.util.Base64.DEFAULT)
+                val bytes = android.util.Base64.decode(fetchedAvatar, android.util.Base64.DEFAULT)
                 val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                 if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
             } catch (_: Exception) {}
+        } else {
+            val toolbarIv = findViewById<CircleImageView>(R.id.ivToolbarAvatar)
+            toolbarIv?.drawable?.let { ivAvatar.setImageDrawable(it) }
         }
 
         when (chat.partnerGender) {
@@ -716,8 +897,6 @@ class SavedChatActivity : AppCompatActivity() {
         val partnerUid = chat.partnerAccountId
             ?: chat.messages.firstOrNull { it.senderId != myId && it.senderId != "system" }?.senderId
 
-        var fetchedAvatar: String? = chat.partnerAvatar
-
         if (partnerUid != null) {
             // 1. Check local cache if fields are "Not specified"
             val cachedGender = TestSession.cachedProfileGender(this, partnerUid)
@@ -727,10 +906,10 @@ class SavedChatActivity : AppCompatActivity() {
             val cachedAvatar = TestSession.cachedProfileAvatar(this, partnerUid)
                 ?: getSharedPreferences("anonchat_prefs", MODE_PRIVATE).getString("avatar_$partnerUid", null)
 
-            if (!cachedName.isNullOrEmpty() && tvName.text == "AnnoUser") tvName.text = cachedName
-            if (!cachedGender.isNullOrEmpty() && tvGender.text == "Not specified") tvGender.text = cachedGender
-            if (cachedAge != null && tvAge.text == "Not specified") tvAge.text = "$cachedAge yrs"
-            if (!cachedCity.isNullOrEmpty() && tvCity.text == "Not specified") tvCity.text = cachedCity
+            if (!cachedName.isNullOrEmpty() && (tvName.text == "AnnoUser" || tvName.text.isEmpty())) tvName.text = cachedName
+            if (!cachedGender.isNullOrEmpty() && (tvGender.text == "Not specified" || tvGender.text.isEmpty())) tvGender.text = cachedGender
+            if (cachedAge != null && (tvAge.text == "Not specified" || tvAge.text.isEmpty())) tvAge.text = "$cachedAge yrs"
+            if (!cachedCity.isNullOrEmpty() && (tvCity.text == "Not specified" || tvCity.text.isEmpty())) tvCity.text = cachedCity
             if (!cachedAvatar.isNullOrEmpty() && fetchedAvatar.isNullOrEmpty()) {
                 fetchedAvatar = cachedAvatar
                 try {
@@ -741,58 +920,76 @@ class SavedChatActivity : AppCompatActivity() {
             }
 
             // 2. Fetch live profile data from Firebase Realtime Database
+            val applySnapshot = { s: DataSnapshot ->
+                val prof = s.child("profile")
+
+                val name = (prof.child("displayName").value ?: s.child("displayName").value ?: s.child("userName").value)
+                    ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+                val gender = (prof.child("gender").value ?: s.child("gender").value)
+                    ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+                val rawAge = prof.child("age").value ?: s.child("age").value
+                val age = rawAge?.toString()?.toIntOrNull()
+
+                val city = (prof.child("city").value ?: s.child("city").value)
+                    ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+                val avatarData = (s.child("avatar").value ?: prof.child("avatar").value)
+                    ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+                if (!name.isNullOrEmpty()) tvName.text = name
+                if (!gender.isNullOrEmpty()) {
+                    tvGender.text = gender
+                    if (gender == "Female") ivAvatar.borderColor = android.graphics.Color.parseColor("#E91E63")
+                }
+                if (age != null && age >= 0) tvAge.text = "$age yrs"
+                if (!city.isNullOrEmpty()) tvCity.text = city
+
+                if (!avatarData.isNullOrEmpty()) {
+                    fetchedAvatar = avatarData
+                    try {
+                        val bytes = android.util.Base64.decode(avatarData, android.util.Base64.DEFAULT)
+                        val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
+                    } catch (_: Exception) {}
+                }
+
+                // Cache profile details locally for instant retrieval
+                TestSession.cacheProfile(this@SavedChatActivity, partnerUid, name, gender, age, city, avatarData)
+
+                // Persist fetched details back to ChatStorage so it loads instantly next time
+                val updatedChat = chat.copy(
+                    partnerName = name ?: chat.partnerName,
+                    partnerGender = gender ?: chat.partnerGender,
+                    partnerAge = age ?: chat.partnerAge,
+                    partnerCity = city ?: chat.partnerCity,
+                    partnerAvatar = avatarData ?: chat.partnerAvatar,
+                    partnerAccountId = partnerUid
+                )
+                if (updatedChat != chat) {
+                    chat = updatedChat
+                    ChatStorage.updateSavedChat(this@SavedChatActivity, updatedChat)
+                }
+            }
+
             FirebaseDatabase.getInstance().reference
                 .child("users").child(partnerUid)
                 .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(s: DataSnapshot) {
-                        if (!s.exists()) return
-                        val prof = s.child("profile")
-
-                        val name = prof.child("displayName").getValue(String::class.java)
-                            ?: s.child("displayName").getValue(String::class.java)
-                            ?: s.child("userName").getValue(String::class.java)
-
-                        val gender = prof.child("gender").getValue(String::class.java)
-                            ?: s.child("gender").getValue(String::class.java)
-
-                        val rawAge = prof.child("age").value ?: s.child("age").value
-                        val age = rawAge?.toString()?.toIntOrNull()
-
-                        val city = prof.child("city").getValue(String::class.java)
-                            ?: s.child("city").getValue(String::class.java)
-
-                        val avatarData = s.child("avatar").getValue(String::class.java)
-                            ?: prof.child("avatar").getValue(String::class.java)
-
-                        if (!name.isNullOrEmpty()) tvName.text = name
-                        if (!gender.isNullOrEmpty()) tvGender.text = gender
-                        if (age != null && age >= 0) tvAge.text = "$age yrs"
-                        if (!city.isNullOrEmpty()) tvCity.text = city
-
-                        if (!avatarData.isNullOrEmpty()) {
-                            fetchedAvatar = avatarData
-                            try {
-                                val bytes = android.util.Base64.decode(avatarData, android.util.Base64.DEFAULT)
-                                val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
-                            } catch (_: Exception) {}
-                        }
-
-                        // Persist fetched details back to ChatStorage so it loads instantly next time
-                        val updatedChat = chat.copy(
-                            partnerName = name ?: chat.partnerName,
-                            partnerGender = gender ?: chat.partnerGender,
-                            partnerAge = age ?: chat.partnerAge,
-                            partnerCity = city ?: chat.partnerCity,
-                            partnerAvatar = avatarData ?: chat.partnerAvatar,
-                            partnerAccountId = partnerUid
-                        )
-                        if (updatedChat != chat) {
-                            chat = updatedChat
-                            ChatStorage.updateSavedChat(this@SavedChatActivity, updatedChat)
+                        if (s.exists()) {
+                            applySnapshot(s)
+                        } else {
+                            FirebaseDatabase.getInstance().reference
+                                .child("users_by_phone").child(partnerUid)
+                                .addListenerForSingleValueEvent(object : ValueEventListener {
+                                    override fun onDataChange(sPhone: DataSnapshot) {
+                                        if (sPhone.exists()) applySnapshot(sPhone)
+                                    }
+                                    override fun onCancelled(e: DatabaseError) {}
+                                })
                         }
                     }
-
                     override fun onCancelled(e: DatabaseError) {}
                 })
         }
@@ -829,6 +1026,9 @@ class SavedChatActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        ThemeManager.applyTheme(this)
+        val color = ThemeManager.getPrimaryColor(this)
+        findViewById<View>(R.id.toolbar)?.setBackgroundColor(color)
         if (::chat.isInitialized) {
             MessageNotificationService.activeChatId = chat.id
         }

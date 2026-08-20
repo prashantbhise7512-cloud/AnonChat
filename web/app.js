@@ -1,22 +1,21 @@
 // ===== AnonChat - Phone OTP Authentication + Random 1-on-1 Matching =====
 // Flow: Auth Screen → Welcome → Chat List → Searching → Matched Chat Room
 
-// ========== TEST MODE ==========
-// Set to true to bypass Firebase Auth entirely (any phone + any code works, including empty)
-// Set to false when ready for production with real Firebase Auth
 const TEST_MODE = true;
 
-// Local stand-in for an auth session while TEST_MODE is active. The key names and the
-// account id derivation below MUST stay identical to TestSession.kt on Android so the same
-// phone number produces the same account on both clients.
-// Remove this block (and the TEST_MODE branches that use it) before shipping.
+let selectedWebLanguage = "en";
+try {
+    selectedWebLanguage = localStorage.getItem("anonchat_web_language") || "en";
+} catch (e) {
+    selectedWebLanguage = "en";
+}
+
 const TestSession = {
     KEY_ACTIVE: "anonchat_test_active",
     KEY_UID: "anonchat_test_uid",
     KEY_PHONE: "anonchat_test_phone",
     PROFILE_PREFIX: "anonchat_test_profile_",
 
-    // Shared derivation: "test_" + digits if phone entered, or unique guest ID if omitted.
     deriveAccountId: function (phoneNumber) {
         const digits = (phoneNumber || "").replace(/\D/g, "");
         if (digits && digits.length >= 5) {
@@ -46,7 +45,6 @@ const TestSession = {
         return uid;
     },
 
-    // Clears the active session and cached UID so the user can sign in as a different number.
     signOut: function () {
         localStorage.removeItem(this.KEY_ACTIVE);
         localStorage.removeItem(this.KEY_UID);
@@ -75,7 +73,996 @@ const TestSession = {
         return (profile && profile.displayName) || null;
     }
 };
-// ===============================
+
+// ===== SUPPORTED LANGUAGES DATA & INIT =====
+const SUPPORTED_LANGUAGES = [
+    { code: "en", native: "English", english: "English" },
+    { code: "hi", native: "हिन्दी", english: "Hindi" },
+    { code: "mr", native: "मराठी", english: "Marathi" },
+    { code: "kn", native: "ಕನ್ನಡ", english: "Kannada" },
+    { code: "ta", native: "தமிழ்", english: "Tamil" },
+    { code: "te", native: "తెలుగు", english: "Telugu" },
+    { code: "ml", native: "മലയാളം", english: "Malayalam" },
+    { code: "gu", native: "ગુજરાતી", english: "Gujarati" },
+    { code: "raj", native: "राजस्थानी", english: "Rajasthani" },
+    { code: "bho", native: "भोजपुरी", english: "Bhojpuri" },
+    { code: "pa", native: "ਪੰਜਾਬੀ", english: "Punjabi" },
+    { code: "har", native: "हरियाणवी", english: "Haryanvi" },
+    { code: "bn", native: "বাংলা", english: "Bengali" },
+    { code: "ur", native: "اردو", english: "Urdu" }
+];
+
+const TRANSLATIONS = {
+    en: {
+        choose_lang_title: "Choose Language / भाषा चुनें",
+        choose_lang_sub: "Select your preferred language to continue",
+        btn_continue: "Continue ▸",
+        btn_save: "Save",
+        btn_cancel: "Cancel",
+        tab_chats: "💬 Chats",
+        tab_profile: "👤 Profile",
+        btn_live_chat: "Live Chat",
+        saved_chats: "Saved Chats",
+        no_saved_chats: "No saved chats yet",
+        join_room_sub: "Join the chat room and save conversations",
+        personal_details: "Personal Details",
+        display_name: "Display Name",
+        gender: "Gender",
+        age: "Age",
+        city: "City",
+        bio: "About me",
+        btn_edit_profile: "✏️ Edit Profile Details",
+        btn_save_changes: "Save Changes",
+        app_theme_color: "🎨 App Theme Color",
+        choose_theme_sub: "Choose your preferred color theme or Dark mode",
+        account_privacy: "🔒 Account & Privacy",
+        app_language: "🌐 App Language",
+        blocked_users: "🚫 Blocked Users",
+        logout: "🚪 Logout",
+        delete_account: "🗑️ Delete Account",
+        no_blocked_users: "No blocked users",
+        unblock: "Unblock",
+        type_message: "Type a message...",
+        active_now: "Active now",
+        searching_title: "Finding a stranger...",
+        searching_sub: "Please wait, connecting you to someone...",
+        cancel_search: "Cancel",
+        end_chat: "End Chat",
+        save_chat: "Save Chat",
+        auth_heading: "Verify your phone",
+        auth_subtitle: "Your number is only used for verification. It's never shared.",
+        phone_placeholder: "Phone number",
+        send_code: "Send Code",
+        skip_otp: "Skip OTP / Continue as Guest",
+        otp_instruction: "Enter the 6-digit code sent to",
+        verify_otp: "Verify",
+        resend_code: "Resend Code",
+        setup_profile: "Setup Profile",
+        setup_profile_sub: "Setup your profile details",
+        please_wait: "Please wait..."
+    },
+    hi: {
+        choose_lang_title: "भाषा चुनें / Choose Language",
+        choose_lang_sub: "आगे बढ़ने के लिए अपनी पसंदीदा भाषा चुनें",
+        btn_continue: "आगे बढ़ें ▸",
+        btn_save: "सहेजें",
+        btn_cancel: "रद्द करें",
+        tab_chats: "💬 बातचीत",
+        tab_profile: "👤 प्रोफ़ाइल",
+        btn_live_chat: "लाइव चैट",
+        saved_chats: "सहेजी गई बातचीत",
+        no_saved_chats: "अभी कोई बातचीत सहेजी नहीं गई",
+        join_room_sub: "चैट रूम में जुड़ें और बातचीत सहेजें",
+        personal_details: "व्यक्तिगत विवरण",
+        display_name: "नाम",
+        gender: "लिंग",
+        age: "आयु",
+        city: "शहर",
+        bio: "मेरे बारे में",
+        btn_edit_profile: "✏️ प्रोफ़ाइल विवरण संपादित करें",
+        btn_save_changes: "बदलाव सहेजें",
+        app_theme_color: "🎨 ऐप थीम रंग",
+        choose_theme_sub: "अपनी पसंद का थीम रंग या डार्क मोड चुनें",
+        account_privacy: "🔒 खाता और गोपनीयता",
+        app_language: "🌐 ऐप की भाषा",
+        blocked_users: "🚫 अवरुद्ध उपयोगकर्ता",
+        logout: "🚪 लॉग आउट",
+        delete_account: "🗑️ खाता हटाएं",
+        no_blocked_users: "कोई अवरुद्ध उपयोगकर्ता नहीं",
+        unblock: "अवरोध हटाएं",
+        type_message: "संदेश लिखें...",
+        active_now: "अभी सक्रिय",
+        searching_title: "अजनबी को खोजा जा रहा है...",
+        searching_sub: "कृपया प्रतीक्षा करें, आपको किसी से जोड़ा जा रहा है...",
+        cancel_search: "रद्द करें",
+        end_chat: "चैट समाप्त करें",
+        save_chat: "चैट सहेजें",
+        auth_heading: "अपना फ़ोन सत्यापित करें",
+        auth_subtitle: "आपका नंबर केवल सत्यापन के लिए है। इसे किसी के साथ साझा नहीं किया जाएगा।",
+        phone_placeholder: "फ़ोन नंबर",
+        send_code: "कोड भेजें",
+        skip_otp: "OTP छोड़ें / अतिथि के रूप में जारी रखें",
+        otp_instruction: "इस नंबर पर भेजा गया 6-अंकीय कोड दर्ज करें",
+        verify_otp: "सत्यापित करें",
+        resend_code: "कोड दोबारा भेजें",
+        setup_profile: "प्रोफ़ाइल सेटअप करें",
+        setup_profile_sub: "अपनी प्रोफ़ाइल जानकारी भरें",
+        please_wait: "कृपया प्रतीक्षा करें..."
+    },
+    mr: {
+        choose_lang_title: "भाषा निवडा / Choose Language",
+        choose_lang_sub: "पुढे जाण्यासाठी तुमची आवडती भाषा निवडा",
+        btn_continue: "पुढे जा ▸",
+        btn_save: "जतन करा",
+        btn_cancel: "रद्द करा",
+        tab_chats: "💬 गप्पा",
+        tab_profile: "👤 प्रोफाइल",
+        btn_live_chat: "लाइव्ह चॅट",
+        saved_chats: "जतन केलेल्या गप्पा",
+        no_saved_chats: "अद्याप कोणत्या ही गप्पा जतन केलेल्या नाहीत",
+        join_room_sub: "चॅट रूममध्ये जा आणि संवाद जतन करा",
+        personal_details: "वैयक्तिक तपशील",
+        display_name: "नाव",
+        gender: "लिंग",
+        age: "वय",
+        city: "शहर",
+        btn_edit_profile: "✏️ प्रोफाइल तपशील संपादीत करा",
+        btn_save_changes: "बदल जतन करा",
+        app_theme_color: "🎨 अॅप थीम रंग",
+        choose_theme_sub: "तुमचा आवडता रंग किंवा डार्क मोड निवडा",
+        account_privacy: "🔒 खाते आणि गोपनीयता",
+        app_language: "🌐 अॅप भाषा",
+        blocked_users: "🚫 ब्लॉक केलेले वापरकर्ते",
+        logout: "🚪 बाहेर पडा",
+        delete_account: "🗑️ खाते हटवा",
+        no_blocked_users: "कोणतेही ब्लॉक केलेले वापरकर्ते नाहीत",
+        unblock: "ब्लॉक काढा",
+        type_message: "संदेश लिहा...",
+        active_now: "आत्ता सक्रिय",
+        bio: "माझ्याबद्दल",
+        searching_title: "अनोळखी व्यक्ती शोधत आहे...",
+        searching_sub: "कृपया प्रतीक्षा करा, आपल्याला कोणाशी तरी जोडत आहोत...",
+        cancel_search: "रद्द करा",
+        end_chat: "चॅट संपवा",
+        save_chat: "चॅट जतन करा",
+        auth_heading: "तुमचा फोन सत्यापित करा",
+        auth_subtitle: "तुमचा नंबर केवळ सत्यापनासाठी वापरला जातो. तो कोणाशीही शेअर केला जात नाही.",
+        phone_placeholder: "फोन नंबर",
+        send_code: "कोड पाठवा",
+        skip_otp: "OTP वगळा / पाहुण्या म्हणून सुरू ठेवा",
+        otp_instruction: "या नंबरवर पाठवलेला 6-अंकी कोड प्रविष्ट करा",
+        verify_otp: "सत्यापित करा",
+        resend_code: "कोड पुन्हा पाठवा",
+        setup_profile: "प्रोफाइल सेटअप करा",
+        setup_profile_sub: "तुमची प्रोफाइल माहिती भरा",
+        please_wait: "कृपया प्रतीक्षा करा..."
+    },
+    kn: {
+        choose_lang_title: "ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+        choose_lang_sub: "ಮುಂದುವರೆಯಲು ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+        btn_continue: "ಮುಂದುವರಿಯಿರಿ ▸",
+        btn_save: "ಉಳಿಸಿ",
+        btn_cancel: "ರದ್ದುಮಾಡಿ",
+        tab_chats: "💬 ಸಂಭಾಷಣೆ",
+        tab_profile: "👤 ಪ್ರೊಫೈಲ್",
+        btn_live_chat: "ಲೈವ್ ಚಾಟ್",
+        saved_chats: "ಸಂಗ್ರಹಿಸಿದ ಚಾಟ್‌ಗಳು",
+        no_saved_chats: "ಯಾವುದೇ ಚಾಟ್‌ಗಳು ಇಲ್ಲ",
+        join_room_sub: "ಚಾಟ್ ರೂಮ್‌ಗೆ ಸೇರಿ ಮತ್ತು ಸಂಭಾಷಣೆಗಳನ್ನು ಉಳಿಸಿ",
+        personal_details: "ವೈಯಕ್ತಿಕ ವಿವರಗಳು",
+        display_name: "ಹೆಸರು",
+        gender: "ಲಿಂಗ",
+        age: "ವಯಸ್ಸು",
+        city: "ನಗರ",
+        btn_edit_profile: "✏️ ಪ್ರೊಫೈಲ್ ಸಂಪಾದಿಸಿ",
+        btn_save_changes: "ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಿ",
+        app_theme_color: "🎨 ಅಪ್ಲಿಕೇಶನ್ ಥೀಮ್",
+        choose_theme_sub: "ನಿಮ್ಮ ಆಯ್ಕೆಯ ಥೀಮ್ ಅಥವಾ ಡಾರ್ಕ್ ಮೋಡ್ ಆಯ್ಕೆಮಾಡಿ",
+        account_privacy: "🔒 ಖಾತೆ ಮತ್ತು ಗೌಪ್ಯತೆ",
+        app_language: "🌐 ಅಪ್ಲಿಕೇಶನ್ ಭಾಷೆ",
+        blocked_users: "🚫 ನಿರ್ಬಂಧಿಸಿದ ಬಳಕೆದಾರರು",
+        logout: "🚪 ನಿರ್ಗಮಿಸಿ",
+        delete_account: "🗑️ ಖಾತೆ ಅಳಿಸಿ",
+        no_blocked_users: "ಯಾರೂ ಇಲ್ಲ",
+        unblock: "ಅನಿರ್ಬಂಧಿಸಿ",
+        type_message: "ಸಂದೇಶ ಬರೆಯಿರಿ...",
+        active_now: "ಸಕ್ರಿಯವಾಗಿದ್ದಾರೆ",
+        bio: "ನನ್ನ ಬಗ್ಗೆ",
+        searching_title: "ಅಪರಿಚಿತರನ್ನು ಹುಡುಕಲಾಗುತ್ತಿದೆ...",
+        searching_sub: "ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ, ನಿಮ್ಮನ್ನು ಯಾರೊಂದಿಗಾದರೂ ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ...",
+        cancel_search: "ರದ್ದುಮಾಡಿ",
+        end_chat: "ಚಾಟ್ ಮುಗಿಸಿ",
+        save_chat: "ಚಾಟ್ ಉಳಿಸಿ",
+        auth_heading: "ನಿಮ್ಮ ಫೋನ್ ಪರಿಶೀಲಿಸಿ",
+        auth_subtitle: "ನಿಮ್ಮ ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲನೆಗಾಗಿ ಮಾತ್ರ ಬಳಸಲಾಗುತ್ತದೆ. ಇದನ್ನು ಯಾರೊಂದಿಗೂ ಹಂಚಿಕೊಳ್ಳಲಾಗುವುದಿಲ್ಲ.",
+        phone_placeholder: "ಫೋನ್ ಸಂಖ್ಯೆ",
+        send_code: "ಕೋಡ್ ಕಳುಹಿಸಿ",
+        skip_otp: "OTP ಬಿಡಿ / ಅತಿಥಿಯಾಗಿ ಮುಂದುವರಿಯಿರಿ",
+        otp_instruction: "ಈ ಸಂಖ್ಯೆಗೆ ಕಳುಹಿಸಲಾದ 6-ಅಂಕಿಯ ಕೋಡ್ ನಮೂದಿಸಿ",
+        verify_otp: "ಪರಿಶೀಲಿಸಿ",
+        resend_code: "ಕೋಡ್ ಮತ್ತೆ ಕಳುಹಿಸಿ",
+        setup_profile: "ಪ್ರೊಫೈಲ್ ಸೆಟಪ್ ಮಾಡಿ",
+        setup_profile_sub: "ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ವಿವರ ತುಂಬಿ",
+        please_wait: "ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ..."
+    },
+    ta: {
+        choose_lang_title: "மொழியைத் தேர்ந்தெடுக்கவும்",
+        choose_lang_sub: "தொடர உங்கள் விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும்",
+        btn_continue: "தொடரவும் ▸",
+        btn_save: "சேமிக்கவும்",
+        btn_cancel: "ரத்து செய்",
+        tab_chats: "💬 அரட்டைகள்",
+        tab_profile: "👤 சுயவிவரம்",
+        btn_live_chat: "லைவ் அரட்டை",
+        saved_chats: "சேமிக்கப்பட்ட அரட்டைகள்",
+        no_saved_chats: "சேமிக்கப்பட்ட அரட்டைகள் இல்லை",
+        join_room_sub: "அரட்டை அறையில் இணைந்து உரையாடல்களைச் சேமிக்கவும்",
+        personal_details: "தனிப்பட்ட விவரங்கள்",
+        display_name: "பெயர்",
+        gender: "பாலினம்",
+        age: "வயது",
+        city: "நகரம்",
+        btn_edit_profile: "✏️ சுயவிவரத்தைத் திருத்து",
+        btn_save_changes: "மாற்றங்களைச் சேமிக்கவும்",
+        app_theme_color: "🎨 ஆப் தீம் வண்ணம்",
+        choose_theme_sub: "வண்ண தீம் அல்லது டார்க் மோடைத் தேர்ந்தெடுக்கவும்",
+        account_privacy: "🔒 கணக்கு & தனியுரிமை",
+        app_language: "🌐 ஆப் மொழி",
+        blocked_users: "🚫 தடுக்கப்பட்ட பயனர்கள்",
+        logout: "🚪 வெளியேறு",
+        delete_account: "🗑️ கணக்கை நீக்கு",
+        no_blocked_users: "தடுக்கப்பட்ட பயனர்கள் இல்லை",
+        unblock: "தடையை நீக்கு",
+        type_message: "செய்தியைத் தட்டச்சு செய்க...",
+        active_now: "இப்போது ஆன்லைனில்",
+        bio: "என்னைப் பற்றி",
+        searching_title: "அந்நியரை தேடுகிறோம்...",
+        searching_sub: "காத்திருங்கள், உங்களை யாரோடாவது இணைக்கிறோம்...",
+        cancel_search: "ரத்து செய்",
+        end_chat: "அரட்டையை முடி",
+        save_chat: "அரட்டையை சேமி",
+        auth_heading: "உங்கள் தொலைபேசியை சரிபார்க்கவும்",
+        auth_subtitle: "உங்கள் எண் சரிபார்ப்புக்கு மட்டுமே பயன்படுத்தப்படுகிறது. இது எவரோடும் பகிரப்படாது.",
+        phone_placeholder: "தொலைபேசி எண்",
+        send_code: "குறியீட்டை அனுப்பு",
+        skip_otp: "OTP தவிர்க்கவும் / விருந்தினராக தொடரவும்",
+        otp_instruction: "இந்த எண்ணுக்கு அனுப்பிய 6-இலக்க குறியீட்டை உள்ளிடவும்",
+        verify_otp: "சரிபார்க்கவும்",
+        resend_code: "குறியீட்டை மீண்டும் அனுப்பு",
+        setup_profile: "சுயவிவரம் அமைக்கவும்",
+        setup_profile_sub: "உங்கள் சுயவிவர விவரங்களை நிரப்பவும்",
+        please_wait: "காத்திருங்கள்..."
+    },
+    te: {
+        choose_lang_title: "భాషను ఎంచుకోండి",
+        choose_lang_sub: "కొనసాగడానికి మీ ప్రాధాన్యత భాషను ఎంచుకోండి",
+        btn_continue: "కొనసాగించండి ▸",
+        btn_save: "సేవ్ చేయండి",
+        btn_cancel: "రద్దు చేయి",
+        tab_chats: "💬 చాట్‌లు",
+        tab_profile: "👤 ప్రొఫైల్",
+        btn_live_chat: "లైవ్ చాట్",
+        saved_chats: "సేవ్ చేసిన చాట్‌లు",
+        no_saved_chats: "సేవ్ చేసిన చాట్‌లు లేవు",
+        join_room_sub: "చాట్ రూమ్‌లో చేరండి మరియు సంభాషణలను సేవ్ చేయండి",
+        personal_details: "వ్యక్తిగత వివరాలు",
+        display_name: "పేరు",
+        gender: "లింగం",
+        age: "వయస్సు",
+        city: "నగరం",
+        btn_edit_profile: "✏️ ప్రొఫైల్ సవరించండి",
+        btn_save_changes: "మార్పులను సేవ్ చేయండి",
+        app_theme_color: "🎨 యాప్ థీమ్ రంగు",
+        choose_theme_sub: "మీకు ఇష్టమైన థీమ్ లేదా డార్క్ మోడ్‌ను ఎంచుకోండి",
+        account_privacy: "🔒 ఖాతా & గోప్యత",
+        app_language: "🌐 యాప్ భాష",
+        blocked_users: "🚫 బ్లాక్ చేసిన వినియోగదారులు",
+        logout: "🚪 లాగ్ అవుట్",
+        delete_account: "🗑️ ఖాతాను తొలగించండి",
+        no_blocked_users: "బ్లాక్ చేసిన వినియోగదారులు లేరు",
+        unblock: "అన్‌బ్లాక్ చేయండి",
+        type_message: "సందేశాన్ని టైప్ చేయండి...",
+        active_now: "ఇప్పుడు సక్రియంగా ఉన్నారు",
+        bio: "నా గురించి",
+        searching_title: "అపరిచితుడిని వెతుకుతున్నాం...",
+        searching_sub: "దయచేసి వేచి ఉండండి, మిమ్మల్ని ఎవరితోనైనా కనెక్ట్ చేస్తున్నాం...",
+        cancel_search: "రద్దు చేయి",
+        end_chat: "చాట్ ముగించు",
+        save_chat: "చాట్ సేవ్ చేయి",
+        auth_heading: "మీ ఫోన్‌ని వెరిఫై చేయండి",
+        auth_subtitle: "మీ నంబర్ కేవలం వెరిఫికేషన్ కోసమే ఉపయోగించబడుతుంది. ఇది ఎవరితోనూ షేర్ చేయబడదు.",
+        phone_placeholder: "ఫోన్ నంబర్",
+        send_code: "కోడ్ పంపండి",
+        skip_otp: "OTP దాటు / అతిథిగా కొనసాగండి",
+        otp_instruction: "ఈ నంబర్‌కి పంపిన 6-అంకెల కోడ్ నమోదు చేయండి",
+        verify_otp: "వెరిఫై చేయండి",
+        resend_code: "కోడ్ మళ్లీ పంపండి",
+        setup_profile: "ప్రొఫైల్ సెటప్ చేయండి",
+        setup_profile_sub: "మీ ప్రొఫైల్ వివరాలు నింపండి",
+        please_wait: "దయచేసి వేచి ఉండండి..."
+    },
+    ml: {
+        choose_lang_title: "ഭാഷ തിരഞ്ഞെടുക്കുക",
+        choose_lang_sub: "തുടരാൻ നിങ്ങളുടെ ഭാഷ തിരഞ്ഞെടുക്കുക",
+        btn_continue: "തുടരുക ▸",
+        btn_save: "സേവ് ചെയ്യുക",
+        btn_cancel: "റദ്ദാക്കുക",
+        tab_chats: "💬 ചാറ്റുകൾ",
+        tab_profile: "👤 പ്രൊഫൈൽ",
+        btn_live_chat: "ലൈവ് ചാറ്റ്",
+        saved_chats: "സേവ് ചെയ്ത ചാറ്റുകൾ",
+        no_saved_chats: "സേവ് ചെയ്ത ചാറ്റുകൾ ഒന്നുമില്ല",
+        join_room_sub: "ചാറ്റ് റൂമിൽ ചേർന്ന് സംഭാഷണങ്ങൾ സേവ് ചെയ്യുക",
+        personal_details: "വ്യക്തിഗത വിവരങ്ങൾ",
+        display_name: "പേര്",
+        gender: "ലിംഗം",
+        age: "വയസ്സ്",
+        city: "നഗരം",
+        btn_edit_profile: "✏️ പ്രൊഫൈൽ എഡിറ്റ് ചെയ്യുക",
+        btn_save_changes: "മാറ്റങ്ങൾ സേവ് ചെയ്യുക",
+        app_theme_color: "🎨 ആപ്പ് തീം കളർ",
+        choose_theme_sub: "നിങ്ങൾക്ക് ഇഷ്ടമുള്ള തീം അല്ലെങ്കിൽ ഡാർക്ക് മോഡ് തിരഞ്ഞെടുക്കുക",
+        account_privacy: "🔒 അക്കൗണ്ടും സ്വകാര്യതയും",
+        app_language: "🌐 ആപ്പ് ഭാഷ",
+        blocked_users: "🚫 ബ്ലോക്ക് ചെയ്ത ഉപയോക്താക്കൾ",
+        logout: "🚪 ലോഗ് ഔട്ട്",
+        delete_account: "🗑️ അക്കൗണ്ട് ഇല്ലാതാക്കുക",
+        no_blocked_users: "ബ്ലോക്ക് ചെയ്ത ഉപയോക്താക്കൾ ഇല്ല",
+        unblock: "അൺബ്ലോക്ക് ചെയ്യുക",
+        type_message: "സന്ദേശം ടൈപ്പ് ചെയ്യുക...",
+        active_now: "ഇപ്പോൾ സജീവമാണ്",
+        bio: "എന്നെക്കുറിച്ച്",
+        searching_title: "അപരിചിതനെ തിരയുകയാണ്...",
+        searching_sub: "ദയവായി കാത്തിരിക്കൂ, നിങ്ങളെ ആരോടെങ്കിലും ബന്ധിപ്പിക്കുകയാണ്...",
+        cancel_search: "റദ്ദാക്കുക",
+        end_chat: "ചാറ്റ് അവസാനിപ്പിക്കുക",
+        save_chat: "ചാറ്റ് സേവ് ചെയ്യുക",
+        auth_heading: "നിങ്ങളുടെ ഫോൺ സ്ഥിരീകരിക്കുക",
+        auth_subtitle: "നിങ്ങളുടെ നമ്പർ സ്ഥിരീകരണത്തിന് മാത്രമേ ഉപയോഗിക്കൂ. ആരോടും പങ്കിടില്ല.",
+        phone_placeholder: "ഫോൺ നമ്പർ",
+        send_code: "കോഡ് അയക്കുക",
+        skip_otp: "OTP ഒഴിവാക്കുക / അതിഥിയായി തുടരുക",
+        otp_instruction: "ഈ നമ്പറിലേക്ക് അയച്ച 6-അക്ക കോഡ് നൽകുക",
+        verify_otp: "സ്ഥിരീകരിക്കുക",
+        resend_code: "കോഡ് വീണ്ടും അയക്കുക",
+        setup_profile: "പ്രൊഫൈൽ സജ്ജീകരിക്കുക",
+        setup_profile_sub: "നിങ്ങളുടെ പ്രൊഫൈൽ വിവരങ്ങൾ പൂരിപ്പിക്കുക",
+        please_wait: "ദയവായി കാത്തിരിക്കൂ..."
+    },
+    gu: {
+        choose_lang_title: "ભાષા પસંદ કરો",
+        choose_lang_sub: "આગળ વધવા માટે તમારી પસંદગીની ભાષા પસંદ કરો",
+        btn_continue: "આગળ વધો ▸",
+        btn_save: "સાચવો",
+        btn_cancel: "રદ કરો",
+        tab_chats: "💬 ચેટ્સ",
+        tab_profile: "👤 પ્રોફાઇલ",
+        btn_live_chat: "લાઇવ ચેટ",
+        saved_chats: "સાચવેલી ચેટ્સ",
+        no_saved_chats: "હજુ સુધી કોઈ સાચવેલી ચેટ નથી",
+        join_room_sub: "ચેટ રૂમમાં જોડાઓ અને વાતચીત સાચવો",
+        personal_details: "વ્યક્તિગત વિગતો",
+        display_name: "નામ",
+        gender: "જાતિ",
+        age: "ઉંમર",
+        city: "શહેર",
+        btn_edit_profile: "✏️ પ્રોફાઇલ વિગતો સંપાદિત કરો",
+        btn_save_changes: "ફેરફારો સાચવો",
+        app_theme_color: "🎨 એપ થીમ રંગ",
+        choose_theme_sub: "તમારી પસંદગીનો રંગ અથવા ડાર્ક મોડ પસંદ કરો",
+        account_privacy: "🔒 ખાતું અને ગોપનીયતા",
+        app_language: "🌐 એપ ભાષા",
+        blocked_users: "🚫 બ્લોક કરેલા વપરાશકર્તાઓ",
+        logout: "🚪 લોગ આઉટ",
+        delete_account: "🗑️ ખાતું કાઢી નાખો",
+        no_blocked_users: "કોઈ બ્લોક કરેલા વપરાશકર્તા નથી",
+        unblock: "અનબ્લોક કરો",
+        type_message: "સંદેશ લખો...",
+        active_now: "હમણાં સક્રિય",
+        bio: "મારા વિશે",
+        searching_title: "અજાણ્યા વ્યક્તિ શોધી રહ્યા છીએ...",
+        searching_sub: "કૃપા કરી રાહ જુઓ, તમને કોઈ સાથે જોડી રહ્યા છીએ...",
+        cancel_search: "રદ કરો",
+        end_chat: "ચેટ સમાપ્ત કરો",
+        save_chat: "ચેટ સાચવો",
+        auth_heading: "તમારો ફોન ચકાસો",
+        auth_subtitle: "તમારો નંબર ફક્ત ચકાસણી માટે ઉપયોગ થાય છે. તે કોઈ સાથે શેર કરવામાં આવતો નથી.",
+        phone_placeholder: "ફોન નંબર",
+        send_code: "કોડ મોકલો",
+        skip_otp: "OTP છોડો / મહેમાન તરીકે ચાલુ રાખો",
+        otp_instruction: "આ નંબર પર મોકલવામાં આવેલ 6-અંકનો કોડ દાખલ કરો",
+        verify_otp: "ચકાસો",
+        resend_code: "કોડ ફરી મોકલો",
+        setup_profile: "પ્રોફાઇલ સેટઅપ કરો",
+        setup_profile_sub: "તમારી પ્રોફાઇल વિગત ભરો",
+        please_wait: "કૃપા કરી રાહ જુઓ..."
+    },
+    raj: {
+        choose_lang_title: "भाषा चुना / Choose Language",
+        choose_lang_sub: "आगे बधन री खातिर आपणी भाषा चुना",
+        btn_continue: "आगे ब धो ▸",
+        btn_save: "सहेजें",
+        btn_cancel: "रद्द करो",
+        tab_chats: "💬 बातां",
+        tab_profile: "👤 प्रोफाइल",
+        btn_live_chat: "लाइव चैट",
+        saved_chats: "सहेजी ज्योडी बातां",
+        no_saved_chats: "अजे कोई बात सहेजी कोनी",
+        join_room_sub: "चैट रूम में जुड़ो और बातां सहेजो",
+        personal_details: "निजी विवरण",
+        display_name: "नाम",
+        gender: "लिंग",
+        age: "उमर",
+        city: "शहर",
+        btn_edit_profile: "✏️ प्रोफाइल संपादन करो",
+        btn_save_changes: "बदलाव सहेजें",
+        app_theme_color: "🎨 ऐप थीम रंग",
+        choose_theme_sub: "आपरी पसंद रो थीम रंग चुना",
+        account_privacy: "🔒 खातो और गोपनीयता",
+        app_language: "🌐 ऐप री भाषा",
+        blocked_users: "🚫 रोक्या थका उपयोगकर्ता",
+        logout: "🚪 बाहर निकलो",
+        delete_account: "🗑️ खाता हटाओ",
+        no_blocked_users: "कोई रोक्या थका कोनी",
+        unblock: "अवरोध हटाओ",
+        type_message: "संदेश लिखो...",
+        active_now: "अबे सक्रिय",
+        bio: "म्हारे बारे में",
+        searching_title: "अणजाण नै खोज्या जा रह्यो है...",
+        searching_sub: "थोड़ी देर रुको, थानै किणी सूं जोड़्या जा रह्या है...",
+        cancel_search: "रद्द करो",
+        end_chat: "चैट बंद करो",
+        save_chat: "चैट सहेजो",
+        auth_heading: "आपणो फोन जांचो",
+        auth_subtitle: "आपरो नंबर केवळ जांच खातिर काम में लेइजे। किणी सूं शेयर कोनी होसी।",
+        phone_placeholder: "फोन नंबर",
+        send_code: "कोड भेजो",
+        skip_otp: "OTP छोड़ो / मेहमान रूप में जारी रखो",
+        otp_instruction: "इण नंबर पर आयो 6-अंकी कोड भरो",
+        verify_otp: "जांचो",
+        resend_code: "कोड फिर भेजो",
+        setup_profile: "प्रोफाइल सेटअप करो",
+        setup_profile_sub: "आपरी प्रोफाइल जानकारी भरो",
+        please_wait: "थोड़ी देर रुको..."
+    },
+    bho: {
+        choose_lang_title: "भाषा चुनीं / Choose Language",
+        choose_lang_sub: "आगे बढ़े खातिर आपन भाषा चुनीं",
+        btn_continue: "आगे बढ़ीं ▸",
+        btn_save: "सहेजीं",
+        btn_cancel: "रद्द करीं",
+        tab_chats: "💬 बात-चीत",
+        tab_profile: "👤 प्रोफ़ाइल",
+        btn_live_chat: "लाइव चैट",
+        saved_chats: "सहेजल बातचीत",
+        no_saved_chats: "अभियों कवनो बातचीत सहेजल नाइ बा",
+        join_room_sub: "चैट रूम में जुड़ीं आ बातचीत सहेजीं",
+        personal_details: "व्यक्तिगत जानकारी",
+        display_name: "नाम",
+        gender: "लिंग",
+        age: "उमिर",
+        city: "शहर",
+        btn_edit_profile: "✏️ प्रोफ़ाइल बदले के",
+        btn_save_changes: "बदलाव सहेजीं",
+        app_theme_color: "🎨 ऐप थीम रंग",
+        choose_theme_sub: "आपन पसंद के थीम रंग चुनीं",
+        account_privacy: "🔒 खाता आ गोपनीयता",
+        app_language: "🌐 ऐप के भाषा",
+        blocked_users: "🚫 रोकल गइल लोग",
+        logout: "🚪 बाहर निकलीं",
+        delete_account: "🗑️ खाता हटाईं",
+        no_blocked_users: "कवनो रोकल गइल नाइ बा",
+        unblock: "अवरोध हटाईं",
+        type_message: "संदेश लिखीं...",
+        active_now: "अब्भी सक्रिय",
+        bio: "हमरे बारे में",
+        searching_title: "अनजान के खोजल जा रहल बा...",
+        searching_sub: "थोड़ा रुकीं, रउआ के कवनो से जोड़ल जा रहल बा...",
+        cancel_search: "रद्द करीं",
+        end_chat: "चैट बंद करीं",
+        save_chat: "चैट सहेजीं",
+        auth_heading: "आपन फोन जांचीं",
+        auth_subtitle: "रउआ के नंबर केवल जांच खातिर उपयोग होला। केहू से शेयर ना होई।",
+        phone_placeholder: "फोन नंबर",
+        send_code: "कोड भेजीं",
+        skip_otp: "OTP छोड़ीं / मेहमान के रूप में जारी रखीं",
+        otp_instruction: "एह नंबर पर आइल 6-अंकी कोड दर्ज करीं",
+        verify_otp: "जांचीं",
+        resend_code: "कोड फिर भेजीं",
+        setup_profile: "प्रोफ़ाइल सेटअप करीं",
+        setup_profile_sub: "आपन प्रोफ़ाइल जानकारी भरीं",
+        please_wait: "जरा रुकीं..."
+    },
+    pa: {
+        choose_lang_title: "ਭਾਸ਼ਾ ਚੁਣੋ / Choose Language",
+        choose_lang_sub: "ਅੱਗੇ ਵਧਣ ਲਈ ਆਪਣੀ ਪਸੰਦੀਦਾ ਭਾਸ਼ਾ ਚੁਣੋ",
+        btn_continue: "ਅੱਗੇ ਵਧੋ ▸",
+        btn_save: "ਸੰਭਾਲੋ",
+        btn_cancel: "ਰੱਦ ਕਰੋ",
+        tab_chats: "💬 ਗੱਲਬਾਤ",
+        tab_profile: "👤 ਪ੍ਰੋਫਾਈਲ",
+        btn_live_chat: "ਲਾਈਵ ਚੈਟ",
+        saved_chats: "ਸੰਭਾਲੀ ਗਈ ਗੱਲਬਾਤ",
+        no_saved_chats: "ਹਜੇ ਤੱਕ ਕੋਈ ਗੱਲਬਾਤ ਨਹੀਂ ਸੰਭਾਲੀ",
+        join_room_sub: "ਚੈਟ ਰੂਮ ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ ਅਤੇ ਗੱਲਬਾਤ ਸੰਭਾਲੋ",
+        personal_details: "ਨਿੱਜੀ ਵੇਰਵੇ",
+        display_name: "ਨਾਮ",
+        gender: "ਲਿੰਗ",
+        age: "ਉਮਰ",
+        city: "ਸ਼ਹਿਰ",
+        btn_edit_profile: "✏️ ਪ੍ਰੋਫਾਈਲ ਵੇਰਵੇ ਸੋਧੋ",
+        btn_save_changes: "ਬਦਲਾਅ ਸੰਭਾਲੋ",
+        app_theme_color: "🎨 ਐਪ ਥੀਮ ਰੰਗ",
+        choose_theme_sub: "ਆਪਣਾ ਪਸੰਦੀਦਾ ਰੰਗ ਜਾਂ ਡਾਰਕ ਮੋਡ ਚੁਣੋ",
+        account_privacy: "🔒 ਖਾਤਾ ਅਤੇ ਗੋਪਨੀਯਤਾ",
+        app_language: "🌐 ਐਪ ਭਾਸ਼ਾ",
+        blocked_users: "🚫 ਬਲੌਕ ਕੀਤੇ ਵਰਤੋਂਕਾਰ",
+        logout: "🚪 ਬਾਹਰ ਨਿਕਲੋ",
+        delete_account: "🗑️ ਖਾਤਾ ਹਟਾਓ",
+        no_blocked_users: "ਕੋਈ ਬਲੌਕ ਕੀਤਾ ਵਰਤੋਂਕਾਰ ਨਹੀਂ",
+        unblock: "ਅਨਬਲੌਕ ਕਰੋ",
+        type_message: "ਸੁਨੇਹਾ ਲਿਖੋ...",
+        active_now: "ਹੁਣੇ ਸਰਗਰਮ",
+        bio: "ਮੇਰੇ ਬਾਰੇ",
+        searching_title: "ਅਜਨਬੀ ਨੂੰ ਲੱਭਿਆ ਜਾ ਰਿਹਾ ਹੈ...",
+        searching_sub: "ਕਿਰਪਾ ਉਡੀਕ ਕਰੋ, ਤੁਹਾਨੂੰ ਕਿਸੇ ਨਾਲ ਜੋੜਿਆ ਜਾ ਰਿਹਾ ਹੈ...",
+        cancel_search: "ਰੱਦ ਕਰੋ",
+        end_chat: "ਚੈਟ ਖਤਮ ਕਰੋ",
+        save_chat: "ਚੈਟ ਸੰਭਾਲੋ",
+        auth_heading: "ਆਪਣਾ ਫੋਨ ਤਸਦੀਕ ਕਰੋ",
+        auth_subtitle: "ਤੁਹਾਡਾ ਨੰਬਰ ਸਿਰਫ ਤਸਦੀਕ ਲਈ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ। ਇਹ ਕਿਸੇ ਨਾਲ ਸਾਂਝਾ ਨਹੀਂ ਕੀਤਾ ਜਾਂਦਾ।",
+        phone_placeholder: "ਫੋਨ ਨੰਬਰ",
+        send_code: "ਕੋਡ ਭੇਜੋ",
+        skip_otp: "OTP ਛੱਡੋ / ਮਹਿਮਾਨ ਵਜੋਂ ਜਾਰੀ ਰੱਖੋ",
+        otp_instruction: "ਇਸ ਨੰਬਰ 'ਤੇ ਭੇਜਿਆ 6-ਅੰਕ ਕੋਡ ਦਾਖਲ ਕਰੋ",
+        verify_otp: "ਤਸਦੀਕ ਕਰੋ",
+        resend_code: "ਕੋਡ ਮੁੜ ਭੇਜੋ",
+        setup_profile: "ਪ੍ਰੋਫਾਈਲ ਸੈੱਟ ਕਰੋ",
+        setup_profile_sub: "ਆਪਣੀ ਪ੍ਰੋਫਾਈਲ ਦੀ ਜਾਣਕਾਰੀ ਭਰੋ",
+        please_wait: "ਕਿਰਪਾ ਉਡੀਕ ਕਰੋ..."
+    },
+    har: {
+        choose_lang_title: "भाषा चुणो / Choose Language",
+        choose_lang_sub: "आगे बधन खात्तर अपणी भाषा चुणो",
+        btn_continue: "आगे बधो ▸",
+        btn_save: "सहेजें",
+        btn_cancel: "रद्द करो",
+        tab_chats: "💬 बात-चीत",
+        tab_profile: "👤 प्रोफ़ाइल",
+        btn_live_chat: "लाइव चैट",
+        saved_chats: "सहेजी गई बात-चीत",
+        no_saved_chats: "इब्बे ताईं कोई बात-चीत कोन्या",
+        join_room_sub: "चैट रूम में जुड़ो अर बात-चीत सहेजो",
+        personal_details: "निजी जानकारी",
+        display_name: "नाम",
+        gender: "लिंग",
+        age: "उम्मर",
+        city: "शहर",
+        btn_edit_profile: "✏️ प्रोफ़ाइल जानकारी बदलो",
+        btn_save_changes: "बदलाव सहेजें",
+        app_theme_color: "🎨 ऐप थीम रंग",
+        choose_theme_sub: "अपणी पसंद का रंग चुणो",
+        account_privacy: "🔒 खाता अर गोपनीयता",
+        app_language: "🌐 ऐप की भाषा",
+        blocked_users: "🚫 रोके गए लोग",
+        logout: "🚪 बाहर लिकड़ो",
+        delete_account: "🗑️ खाता हटाओ",
+        no_blocked_users: "कोई रोक्या कोन्या",
+        unblock: "अवरोध हटाओ",
+        type_message: "संदेश लिखो...",
+        active_now: "इब्बे एक्टिव",
+        bio: "म्हारे बारे में",
+        searching_title: "अणजाण नै ढूंढ्या जा रह्या हैं...",
+        searching_sub: "थोड़ी देर रुको, थानै किसी से जोड़ रहे हैं...",
+        cancel_search: "रद्द करो",
+        end_chat: "चैट बंद करो",
+        save_chat: "चैट सहेजो",
+        auth_heading: "आपणा फोन जांचो",
+        auth_subtitle: "तेरा नंबर सिर्फ जांच खात्तर काम आवैगा। किसी से शेयर कोन्या होगा।",
+        phone_placeholder: "फोन नंबर",
+        send_code: "कोड भेजो",
+        skip_otp: "OTP छोड़ो / मेहमान बण के जारी रहो",
+        otp_instruction: "इस नंबर पर आया 6-अंकी कोड दर्ज करो",
+        verify_otp: "जांचो",
+        resend_code: "कोड फिर भेजो",
+        setup_profile: "प्रोफ़ाइल सेटअप करो",
+        setup_profile_sub: "अपणी प्रोफ़ाइल भरो",
+        please_wait: "थोड़ी देर रुको..."
+    },
+    bn: {
+        choose_lang_title: "ভাষা নির্বাচন করুন",
+        choose_lang_sub: "এগিয়ে যেতে আপনার পছন্দের ভাষা চয়ন করুন",
+        btn_continue: "এগিয়ে যান ▸",
+        btn_save: "সংরক্ষণ করুন",
+        btn_cancel: "বাতিল করুন",
+        tab_chats: "💬 চ্যাট",
+        tab_profile: "👤 প্রোফাইল",
+        btn_live_chat: "লাইভ চ্যাট",
+        saved_chats: "সংরক্ষিত চ্যাট",
+        no_saved_chats: "এখনও কোনও সংরক্ষিত চ্যাট নেই",
+        join_room_sub: "চ্যাট রুমে যোগ দিন এবং কথোপকথন সংরক্ষণ করুন",
+        personal_details: "ব্যক্তিগত বিবরণ",
+        display_name: "নাম",
+        gender: "লিঙ্গ",
+        age: "বয়স",
+        city: "শহর",
+        btn_edit_profile: "✏️ প্রোফাইল তথ্য সম্পাদনা করুন",
+        btn_save_changes: "পরিবর্তনগুলি সংরক্ষণ করুন",
+        app_theme_color: "🎨 অ্যাপ থিম রঙ",
+        choose_theme_sub: "আপনার পছন্দের থিম রঙ বা ডার্ক মোড চয়ন করুন",
+        account_privacy: "🔒 অ্যাকাউন্ট ও গোপনীয়তা",
+        app_language: "🌐 অ্যাপের ভাষা",
+        blocked_users: "🚫 অবরুদ্ধ ব্যবহারকারী",
+        logout: "🚪 লগ আউট",
+        delete_account: "🗑️ অ্যাকাউন্ট মুছুন",
+        no_blocked_users: "কোনও অবরুদ্ধ ব্যবহারকারী নেই",
+        unblock: "আনব্লক করুন",
+        type_message: "বার্তা লিখুন...",
+        active_now: "এখন সক্রিয়",
+        bio: "আমার সম্পর্কে",
+        searching_title: "অপরিচিতকে খুঁজছি...",
+        searching_sub: "অনুগ্রহ করে অপেক্ষা করুন, আপনাকে কারো সাথে সংযুক্ত করা হচ্ছে...",
+        cancel_search: "বাতিল করুন",
+        end_chat: "চ্যাট শেষ করুন",
+        save_chat: "চ্যাট সংরক্ষণ করুন",
+        auth_heading: "আপনার ফোন যাচাই করুন",
+        auth_subtitle: "আপনার নম্বর শুধুমাত্র যাচাইয়ের জন্য ব্যবহার করা হয়। এটি কারো সাথে শেয়ার করা হবে না।",
+        phone_placeholder: "ফোন নম্বর",
+        send_code: "কোড পাঠান",
+        skip_otp: "OTP এড়িয়ে যান / অতিথি হিসেবে চালিয়ে যান",
+        otp_instruction: "এই নম্বরে পাঠানো 6-সংখ্যার কোড লিখুন",
+        verify_otp: "যাচাই করুন",
+        resend_code: "কোড আবার পাঠান",
+        setup_profile: "প্রোফাইল সেট করুন",
+        setup_profile_sub: "আপনার প্রোফাইল তথ্য পূরণ করুন",
+        please_wait: "অনুগ্রহ করে অপেক্ষা করুন..."
+    },
+    ur: {
+        choose_lang_title: "زبان منتخب کریں",
+        choose_lang_sub: "آگے بڑھنے کے لیے اپنی پسندیدہ زبان منتخب کریں",
+        btn_continue: "آگے بڑھیں ▸",
+        btn_save: "محفوظ کریں",
+        btn_cancel: "منسوخ کریں",
+        tab_chats: "💬 بات چیت",
+        tab_profile: "👤 پروفائل",
+        btn_live_chat: "لائیو چیٹ",
+        saved_chats: "محفوظ شدہ چیٹس",
+        no_saved_chats: "ابھی کوئی محفوظ شدہ چیٹ نہیں ہے",
+        join_room_sub: "چیٹ روم میں شامل ہوں اور بات چیت محفوظ کریں",
+        personal_details: "ذاتی تفصیلات",
+        display_name: "نام",
+        gender: "جنس",
+        age: "عمر",
+        city: "شہر",
+        btn_edit_profile: "✏️ پروفائل میں ترمیم کریں",
+        btn_save_changes: "تبدیلیاں محفوظ کریں",
+        app_theme_color: "🎨 ایپ تھیم کا رنگ",
+        choose_theme_sub: "اپنی پسند کا تھیم رنگ یا ڈارک موڈ منتخب کریں",
+        account_privacy: "🔒 اکاؤنٹ اور پرائیویسی",
+        app_language: "🌐 ایپ کی زبان",
+        blocked_users: "🚫 بلاک شدہ صارفین",
+        logout: "🚪 لاگ آؤٹ",
+        delete_account: "🗑️ اکاؤنٹ ڈیلیٹ کریں",
+        no_blocked_users: "کوئی بلاک شدہ صارف نہیں ہے",
+        unblock: "ان بلاک کریں",
+        type_message: "پیغام لکھیں...",
+        active_now: "ابھی فعال ہیں",
+        bio: "میرے بارے میں",
+        searching_title: "انجان کو ڈھونڈا جا رہا ہے...",
+        searching_sub: "براہ کرم انتظار کریں، آپ کو کسی سے جوڑا جا رہا ہے...",
+        cancel_search: "منسوخ کریں",
+        end_chat: "چیٹ ختم کریں",
+        save_chat: "چیٹ محفوظ کریں",
+        auth_heading: "اپنا فون تصدیق کریں",
+        auth_subtitle: "آپ کا نمبر صرف تصدیق کے لیے استعمال ہوتا ہے۔ یہ کسی کے ساتھ شیئر نہیں کیا جائے گا۔",
+        phone_placeholder: "فون نمبر",
+        send_code: "کوڈ بھیجیں",
+        skip_otp: "OTP چھوڑیں / مہمان کے طور پر جاری رکھیں",
+        otp_instruction: "اس نمبر پر بھیجا گیا 6 ہندسوں کا کوڈ درج کریں",
+        verify_otp: "تصدیق کریں",
+        resend_code: "کوڈ دوبارہ بھیجیں",
+        setup_profile: "پروفائل ترتیب دیں",
+        setup_profile_sub: "اپنی پروفائل کی تفصیلات پُر کریں",
+        please_wait: "براہ کرم انتظار کریں..."
+    }
+};
+
+function applyWebLanguage(code) {
+    const t = TRANSLATIONS[code] || TRANSLATIONS.en;
+    
+    // 1. Language Screen
+    const tvTitle = document.getElementById("tvLanguageTitle");
+    if (tvTitle) tvTitle.textContent = t.choose_lang_title;
+    
+    const tvSub = document.getElementById("tvLanguageSubtitle");
+    if (tvSub) tvSub.textContent = t.choose_lang_sub;
+
+    const btnCont = document.getElementById("btnContinueLanguage");
+    if (btnCont) btnCont.textContent = t.btn_continue;
+
+    const btnSave = document.getElementById("btnSaveLanguageWeb");
+    if (btnSave) btnSave.textContent = t.btn_save;
+
+    const btnCancel = document.getElementById("btnCancelLanguageWeb");
+    if (btnCancel) btnCancel.textContent = t.btn_cancel;
+
+    // 2. Navigation Tabs
+    const tabChats = document.getElementById("tabChats");
+    if (tabChats) tabChats.textContent = t.tab_chats;
+
+    const tabProfile = document.getElementById("tabProfile");
+    if (tabProfile) tabProfile.textContent = t.tab_profile;
+
+    // 3. Chat List Screen
+    const btnJoin = document.getElementById("btnJoinRoom");
+    if (btnJoin) {
+        btnJoin.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20,2H4C2.9,2 2,2.9 2,4v18l4,-4h14c1.1,0 2,-0.9 2,-2V4C22,2.9 21.1,2 20,2z"/></svg> ${t.btn_live_chat}`;
+    }
+
+    const joinSub = document.querySelector(".welcome-card p");
+    if (joinSub) joinSub.textContent = t.join_room_sub;
+
+    const savedTitle = document.querySelector(".list-section-title");
+    if (savedTitle) savedTitle.textContent = t.saved_chats;
+
+    const noSavedEl = document.querySelector(".empty-state");
+    if (noSavedEl) noSavedEl.textContent = t.no_saved_chats;
+
+    // 4. Profile Screen
+    const personalHead = document.querySelector("#profileCard .card-title");
+    if (personalHead) personalHead.textContent = t.personal_details;
+
+    const labelName = document.querySelector("label[for='profileName']");
+    if (labelName) labelName.textContent = t.display_name;
+
+    const labelGender = document.querySelector("label[for='profileGender']");
+    if (labelGender) labelGender.textContent = t.gender;
+
+    const labelAge = document.querySelector("label[for='profileAge']");
+    if (labelAge) labelAge.textContent = t.age;
+
+    const labelCity = document.querySelector("label[for='profileCity']");
+    if (labelCity) labelCity.textContent = t.city;
+
+    const btnEditProfile = document.getElementById("btnEditProfileDetails");
+    if (btnEditProfile) btnEditProfile.textContent = t.btn_edit_profile;
+
+    const btnSaveProfile = document.getElementById("btnSaveProfile");
+    if (btnSaveProfile) btnSaveProfile.textContent = t.btn_save_changes;
+
+    const btnCancelProfile = document.getElementById("btnCancelEdit");
+    if (btnCancelProfile) btnCancelProfile.textContent = t.btn_cancel;
+
+    // 5. Theme Section
+    const themeHead = document.querySelector(".theme-card-title");
+    if (themeHead) themeHead.textContent = t.app_theme_color;
+
+    const themeSub = document.querySelector(".theme-card-subtitle");
+    if (themeSub) themeSub.textContent = t.choose_theme_sub;
+
+    // 6. Account & Privacy Screen
+    const btnOpenAcc = document.getElementById("btnOpenAccountPrivacyWeb");
+    if (btnOpenAcc) {
+        btnOpenAcc.innerHTML = `<span>${t.account_privacy}</span><span class="row-arrow">›</span>`;
+    }
+
+    const accHeaderTitle = document.querySelector(".account-privacy-header h2");
+    if (accHeaderTitle) accHeaderTitle.textContent = t.account_privacy;
+
+    const btnChangeLang = document.getElementById("btnChangeLanguageWeb");
+    if (btnChangeLang) {
+        btnChangeLang.innerHTML = `<span>${t.app_language}</span><span class="row-arrow">›</span>`;
+    }
+
+    const btnShowBlocked = document.getElementById("btnShowBlocked");
+    if (btnShowBlocked) {
+        btnShowBlocked.innerHTML = `<span>${t.blocked_users}</span><span class="row-arrow">›</span>`;
+    }
+
+    const btnLogout = document.getElementById("btnLogout");
+    if (btnLogout) {
+        btnLogout.innerHTML = `<span>${t.logout}</span>`;
+    }
+
+    // 7. Blocked Users Screen
+    const blockedHeaderTitle = document.querySelector(".blocked-header h2");
+    if (blockedHeaderTitle) blockedHeaderTitle.textContent = t.blocked_users;
+
+    const noBlockedEl = document.getElementById("noBlockedUsers");
+    if (noBlockedEl) noBlockedEl.textContent = t.no_blocked_users;
+
+    // 8. Chat Inputs & Searching
+    const inputMsg = document.getElementById("messageInput");
+    if (inputMsg) inputMsg.placeholder = t.type_message;
+
+    const inputSavedMsg = document.getElementById("savedMessageInput");
+    if (inputSavedMsg) inputSavedMsg.placeholder = t.type_message;
+
+    const searchHead = document.querySelector(".searching-content h2");
+    if (searchHead) searchHead.textContent = t.searching_title;
+
+    const searchSub = document.querySelector(".searching-content p");
+    if (searchSub) searchSub.textContent = t.searching_sub;
+
+    const chatStatus = document.getElementById("chatStatusText");
+    if (chatStatus) chatStatus.textContent = t.active_now;
+
+    // 9. Auth Screen
+    const authHeading = document.querySelector(".auth-heading");
+    if (authHeading) authHeading.textContent = t.auth_heading;
+
+    const authSubtitle = document.querySelector(".auth-subtitle");
+    if (authSubtitle) authSubtitle.textContent = t.auth_subtitle;
+
+    const phoneInput = document.getElementById("phoneInput");
+    if (phoneInput) phoneInput.placeholder = t.phone_placeholder;
+
+    const btnSendCode2 = document.getElementById("btnSendCode");
+    if (btnSendCode2) btnSendCode2.textContent = t.send_code;
+
+    const btnSkipOtp2 = document.getElementById("btnSkipOtp");
+    if (btnSkipOtp2) btnSkipOtp2.textContent = t.skip_otp;
+
+    const btnVerifyOtp2 = document.getElementById("btnVerifyOtp");
+    if (btnVerifyOtp2) btnVerifyOtp2.textContent = t.verify_otp;
+
+    const loadingText = document.querySelector(".loading-text");
+    if (loadingText) loadingText.textContent = t.please_wait;
+
+    // 10. Setup Profile Screen
+    const setupTitle = document.querySelector(".welcome-screen .app-title");
+    if (setupTitle) setupTitle.textContent = t.setup_profile;
+
+    const setupSub = document.querySelector(".welcome-screen .tagline");
+    if (setupSub) setupSub.textContent = t.setup_profile_sub;
+
+    // 11. Bio field label
+    const labelBio = document.querySelector("label[for='profileBio']");
+    if (labelBio) labelBio.textContent = t.bio;
+
+    // 12. Chat action buttons
+    const btnEndChat = document.getElementById("btnEndChat");
+    if (btnEndChat) btnEndChat.textContent = t.end_chat;
+
+    const btnSaveChat = document.getElementById("btnSaveChat");
+    if (btnSaveChat) btnSaveChat.textContent = t.save_chat;
+
+    const btnCancelSearch = document.getElementById("btnCancelSearch");
+    if (btnCancelSearch) btnCancelSearch.textContent = t.cancel_search;
+}
+
+window.selectWebLang = function(code) {
+    selectedWebLanguage = code;
+    initLanguageScreen();
+};
+
+function initLanguageScreen() {
+    setupLanguageEvents();
+    applyWebLanguage(selectedWebLanguage);
+    const gridEl = document.getElementById("languageGrid");
+    if (!gridEl) return;
+
+    gridEl.querySelectorAll(".language-square-card").forEach(card => {
+        const code = card.getAttribute("data-code");
+        const isSelected = (code === selectedWebLanguage);
+        
+        if (isSelected) {
+            card.classList.add("selected");
+            card.style.border = "3px solid #1E88E5";
+            card.style.backgroundColor = "#f0f7ff";
+        } else {
+            card.classList.remove("selected");
+            card.style.border = "2px solid #cbd5e1";
+            card.style.backgroundColor = "#ffffff";
+        }
+        
+        const checkEl = card.querySelector(".lang-check");
+        if (checkEl) {
+            if (isSelected) {
+                checkEl.classList.remove("hidden");
+                checkEl.style.display = "block";
+            } else {
+                checkEl.classList.add("hidden");
+                checkEl.style.display = "none";
+            }
+        }
+    });
+}
+
+let previousWebLanguage = selectedWebLanguage;
+
+function setupLanguageEvents() {
+    const gridEl = document.getElementById("languageGrid");
+    if (gridEl && !gridEl.dataset.bound) {
+        gridEl.dataset.bound = "true";
+        gridEl.addEventListener("click", (e) => {
+            const card = e.target.closest(".language-square-card");
+            if (card) {
+                const code = card.getAttribute("data-code");
+                if (code) {
+                    selectedWebLanguage = code;
+                    initLanguageScreen();
+                }
+            }
+        });
+    }
+
+    const btnContinue = document.getElementById("btnContinueLanguage");
+    if (btnContinue && !btnContinue.dataset.bound) {
+        btnContinue.dataset.bound = "true";
+        btnContinue.addEventListener("click", () => {
+            try {
+                localStorage.setItem("anonchat_web_language", selectedWebLanguage);
+            } catch (e) {}
+            const langScreen = document.getElementById("languageScreen");
+            if (langScreen) {
+                langScreen.classList.add("hidden");
+                langScreen.style.display = "none";
+            }
+            if (typeof TestSession !== "undefined" && TestSession.isActive()) {
+                if (typeof showScreen === "function" && typeof chatListScreen !== "undefined") {
+                    showScreen(chatListScreen);
+                }
+            } else {
+                if (typeof showScreen === "function" && typeof authScreen !== "undefined") {
+                    showScreen(authScreen);
+                }
+            }
+        });
+    }
+
+    const btnSave = document.getElementById("btnSaveLanguageWeb");
+    if (btnSave && !btnSave.dataset.bound) {
+        btnSave.dataset.bound = "true";
+        btnSave.addEventListener("click", () => {
+            try {
+                localStorage.setItem("anonchat_web_language", selectedWebLanguage);
+            } catch (e) {}
+            const langScreen = document.getElementById("languageScreen");
+            if (langScreen) {
+                langScreen.classList.add("hidden");
+                langScreen.style.display = "none";
+            }
+        });
+    }
+
+    const btnCancel = document.getElementById("btnCancelLanguageWeb");
+    if (btnCancel && !btnCancel.dataset.bound) {
+        btnCancel.dataset.bound = "true";
+        btnCancel.addEventListener("click", () => {
+            selectedWebLanguage = previousWebLanguage;
+            initLanguageScreen();
+            const langScreen = document.getElementById("languageScreen");
+            if (langScreen) {
+                langScreen.classList.add("hidden");
+                langScreen.style.display = "none";
+            }
+        });
+    }
+
+    const btnChangeLang = document.getElementById("btnChangeLanguageWeb");
+    if (btnChangeLang && !btnChangeLang.dataset.bound) {
+        btnChangeLang.dataset.bound = "true";
+        btnChangeLang.addEventListener("click", () => {
+            previousWebLanguage = selectedWebLanguage;
+            initLanguageScreen();
+            
+            const btnContinueEl = document.getElementById("btnContinueLanguage");
+            const profileActionsEl = document.getElementById("languageProfileActions");
+            if (btnContinueEl) btnContinueEl.style.display = "none";
+            if (profileActionsEl) {
+                profileActionsEl.classList.remove("hidden");
+                profileActionsEl.style.display = "flex";
+            }
+
+            const langScreen = document.getElementById("languageScreen");
+            if (langScreen) {
+                langScreen.classList.remove("hidden");
+                langScreen.style.display = "flex";
+            }
+        });
+    }
+}
 
 // === Firebase Configuration (placeholder — replace with real project config) ===
 const firebaseConfig = {
@@ -365,43 +1352,72 @@ function testModeVerify() {
     }
 })();
 
-// === Firebase Auth State Persistence and Initialization ===
-if (TEST_MODE) {
-    // Test mode: route on the local session instead of Firebase Auth.
-    try {
-        const testNotice = document.getElementById("authTestModeNotice");
-        if (testNotice) testNotice.classList.remove("hidden");
+function checkInitialLanguageAndBootstrap(onComplete) {
+    const hasSelectedLang = localStorage.getItem("anonchat_web_language");
+    const langScreen = document.getElementById("languageScreen");
 
-        if (TestSession.isActive()) {
-            // Already "logged in" — skip auth screen
-            const savedUid = TestSession.uid();
-            authScreen.style.display = "none";
-            initChatApp(savedUid, TestSession.cachedDisplayName(savedUid) || "AnnoUser");
+    if (!hasSelectedLang && langScreen) {
+        initLanguageScreen();
+        langScreen.classList.remove("hidden");
+        langScreen.style.display = "flex";
+        
+        const btnContinue = document.getElementById("btnContinueLanguage");
+        if (btnContinue) {
+            const continueHandler = () => {
+                btnContinue.removeEventListener("click", continueHandler);
+                localStorage.setItem("anonchat_web_language", selectedWebLanguage);
+                langScreen.classList.add("hidden");
+                langScreen.style.display = "none";
+                onComplete();
+            };
+            btnContinue.addEventListener("click", continueHandler);
         } else {
-            // Show auth screen, enable Send Code button immediately (no reCAPTCHA needed)
+            onComplete();
+        }
+    } else {
+        if (langScreen) {
+            langScreen.classList.add("hidden");
+            langScreen.style.display = "none";
+        }
+        onComplete();
+    }
+}
+
+if (TEST_MODE) {
+    checkInitialLanguageAndBootstrap(() => {
+        try {
+            const testNotice = document.getElementById("authTestModeNotice");
+            if (testNotice) testNotice.classList.remove("hidden");
+
+            if (TestSession.isActive()) {
+                const savedUid = TestSession.uid();
+                authScreen.style.display = "none";
+                initChatApp(savedUid, TestSession.cachedDisplayName(savedUid) || "AnnoUser");
+            } else {
+                authScreen.style.display = "";
+                authScreen.classList.remove("hidden");
+                btnSendCode.disabled = false;
+            }
+        } catch (e) {
+            console.warn("TestSession bootstrap error:", e);
             authScreen.style.display = "";
             authScreen.classList.remove("hidden");
             btnSendCode.disabled = false;
         }
-    } catch (e) {
-        // localStorage might be blocked on file:// — show auth screen anyway.
-        console.warn("TestSession bootstrap error:", e);
-        authScreen.style.display = "";
-        authScreen.classList.remove("hidden");
-        btnSendCode.disabled = false;
-    }
+    });
 } else {
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function () {
-        // Check auth state on load
         auth.onAuthStateChanged(function (user) {
-            if (user) {
-                authScreen.style.display = "none";
-                initChatApp(user.uid, "AnnoUser");
-            } else {
-                authScreen.style.display = "";
-                authScreen.classList.remove("hidden");
-                setupRecaptcha();
-            }
+            checkInitialLanguageAndBootstrap(() => {
+                if (user) {
+                    authScreen.style.display = "none";
+                    initChatApp(user.uid, "AnnoUser");
+                } else {
+                    authScreen.style.display = "";
+                    authScreen.classList.remove("hidden");
+                    setupRecaptcha();
+                }
+            });
         });
     }).catch(function (error) {
         // Fallback: show auth screen anyway
@@ -1073,7 +2089,6 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
     const chatHeaderClickable = document.getElementById("chatHeaderClickable");
     const chatHeaderAvatar = document.getElementById("chatHeaderAvatar");
     const savedChatHeaderClickable = document.getElementById("savedChatHeaderClickable");
-    const savedChatAvatar = document.getElementById("savedChatAvatar");
 
     const triggerOpenPartnerModal = () => {
         const partnerAccId = currentPartnerAccountId;
@@ -2178,3 +3193,349 @@ function formatLastActive(ts) {
     if (d.toDateString() === yesterday.toDateString()) return "last seen yesterday";
     return "last seen " + d.getDate() + "/" + (d.getMonth()+1) + "/" + d.getFullYear();
 }
+
+// ===== WEB FEATURE SYNC (6 Themes, Photo Lightbox, Bottom Sheet) =====
+
+const WEB_THEMES = {
+    blue: { primary: "#1E88E5", dark: false },
+    green: { primary: "#2E7D32", dark: false },
+    purple: { primary: "#7B1FA2", dark: false },
+    red: { primary: "#C62828", dark: false },
+    teal: { primary: "#00695C", dark: false },
+    dark: { primary: "#212121", dark: true }
+};
+
+window.applyWebTheme = function(themeKey) {
+    const theme = WEB_THEMES[themeKey] || WEB_THEMES.blue;
+    document.documentElement.style.setProperty("--primary-color", theme.primary);
+    if (theme.dark) {
+        document.body.classList.add("dark-mode");
+    } else {
+        document.body.classList.remove("dark-mode");
+    }
+    try {
+        localStorage.setItem("anonchat_web_theme", themeKey);
+    } catch (e) {}
+
+    document.querySelectorAll(".theme-circle").forEach(circle => {
+        const isCurrent = (circle.dataset.theme === themeKey);
+        circle.classList.toggle("active", isCurrent);
+        const checkMark = circle.querySelector(".check-mark");
+        if (checkMark) {
+            checkMark.style.display = isCurrent ? "block" : "none";
+        }
+    });
+};
+
+function setupThemeEvents() {
+    let savedTheme = "blue";
+    try {
+        savedTheme = localStorage.getItem("anonchat_web_theme") || "blue";
+    } catch (e) {}
+    window.applyWebTheme(savedTheme);
+
+    document.querySelectorAll(".theme-circle").forEach(circle => {
+        if (!circle.dataset.bound) {
+            circle.dataset.bound = "true";
+            circle.addEventListener("click", () => {
+                window.applyWebTheme(circle.dataset.theme);
+            });
+        }
+    });
+}
+
+function openPhotoLightbox(base64) {
+    const modal = document.getElementById("imageLightboxModal");
+    const img = document.getElementById("lightboxImage");
+    if (modal && img) {
+        img.src = "data:image/jpeg;base64," + base64;
+        modal.classList.remove("hidden");
+    }
+}
+
+function setupPhotoEvents() {
+    const handlePhotoSelect = (fileInput, isSaved) => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                const maxDim = 1024;
+                let width = img.width;
+                let height = img.height;
+                if (width > maxDim || height > maxDim) {
+                    const scale = maxDim / Math.max(width, height);
+                    width = Math.round(width * scale);
+                    height = Math.round(height * scale);
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+                
+                if (typeof sendPhotoPayload === "function") {
+                    sendPhotoPayload(compressedBase64, isSaved);
+                }
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+        fileInput.value = "";
+    };
+
+    const modal = document.getElementById("photoSourceModal");
+    const btnPickCamera = document.getElementById("btnPickCamera");
+    const btnPickGallery = document.getElementById("btnPickGallery");
+    const btnCancelSource = document.getElementById("btnCancelPhotoSource");
+
+    let currentIsSaved = false;
+
+    const openSourceModal = (isSaved) => {
+        currentIsSaved = isSaved;
+        if (modal) modal.classList.remove("hidden");
+    };
+
+    const btnAttachWeb = document.getElementById("btnAttachPhotoWeb");
+    if (btnAttachWeb) {
+        btnAttachWeb.addEventListener("click", () => openSourceModal(false));
+    }
+
+    const btnSavedAttachWeb = document.getElementById("btnSavedAttachPhotoWeb");
+    if (btnSavedAttachWeb) {
+        btnSavedAttachWeb.addEventListener("click", () => openSourceModal(true));
+    }
+
+    if (btnPickCamera) {
+        btnPickCamera.addEventListener("click", () => {
+            if (modal) modal.classList.add("hidden");
+            const input = currentIsSaved ? document.getElementById("savedPhotoCameraInput") : document.getElementById("photoCameraInput");
+            if (input) input.click();
+        });
+    }
+
+    if (btnPickGallery) {
+        btnPickGallery.addEventListener("click", () => {
+            if (modal) modal.classList.add("hidden");
+            const input = currentIsSaved ? document.getElementById("savedPhotoFileInput") : document.getElementById("photoFileInput");
+            if (input) input.click();
+        });
+    }
+
+    if (btnCancelSource) {
+        btnCancelSource.addEventListener("click", () => {
+            if (modal) modal.classList.add("hidden");
+        });
+    }
+
+    const photoInput = document.getElementById("photoFileInput");
+    if (photoInput) photoInput.addEventListener("change", () => handlePhotoSelect(photoInput, false));
+
+    const photoCameraInput = document.getElementById("photoCameraInput");
+    if (photoCameraInput) photoCameraInput.addEventListener("change", () => handlePhotoSelect(photoCameraInput, false));
+
+    const savedPhotoInput = document.getElementById("savedPhotoFileInput");
+    if (savedPhotoInput) savedPhotoInput.addEventListener("change", () => handlePhotoSelect(savedPhotoInput, true));
+
+    const savedPhotoCameraInput = document.getElementById("savedPhotoCameraInput");
+    if (savedPhotoCameraInput) savedPhotoCameraInput.addEventListener("change", () => handlePhotoSelect(savedPhotoCameraInput, true));
+
+    const btnCloseLightbox = document.getElementById("btnCloseLightbox");
+    if (btnCloseLightbox) {
+        btnCloseLightbox.addEventListener("click", () => {
+            const modal = document.getElementById("imageLightboxModal");
+            if (modal) modal.classList.add("hidden");
+        });
+    }
+}
+
+let activeSheetMessage = null;
+
+function openMessageOptionsSheet(msg) {
+    activeSheetMessage = msg;
+    const sheet = document.getElementById("messageOptionsSheet");
+    const senderEl = document.getElementById("sheetSender");
+    const snippetEl = document.getElementById("sheetSnippet");
+    const btnEdit = document.getElementById("btnSheetEdit");
+
+    if (!sheet || !senderEl || !snippetEl) return;
+
+    const myId = (typeof currentUserId !== "undefined") ? currentUserId : "";
+    senderEl.textContent = (msg.senderId === myId) ? "You" : (typeof currentPartnerName !== "undefined" ? currentPartnerName : "Stranger");
+    snippetEl.textContent = (msg.type === "voice") ? "🎤 Voice message" : (msg.type === "photo" ? "📷 Photo" : msg.message);
+
+    if (btnEdit) {
+        btnEdit.style.display = (msg.senderId === myId && msg.type === "text" && !msg.isDeleted) ? "block" : "none";
+    }
+
+    sheet.classList.remove("hidden");
+}
+
+function setupMessageSheetEvents() {
+    const sheet = document.getElementById("messageOptionsSheet");
+    if (!sheet) return;
+
+    sheet.addEventListener("click", (e) => {
+        if (e.target === sheet) sheet.classList.add("hidden");
+    });
+
+    const btnReply = document.getElementById("btnSheetReply");
+    if (btnReply && typeof setReplyMessage === "function") {
+        btnReply.addEventListener("click", () => {
+            sheet.classList.add("hidden");
+            if (activeSheetMessage) setReplyMessage(activeSheetMessage);
+        });
+    }
+
+    const btnEdit = document.getElementById("btnSheetEdit");
+    if (btnEdit && typeof showEditMessageDialog === "function") {
+        btnEdit.addEventListener("click", () => {
+            sheet.classList.add("hidden");
+            if (activeSheetMessage) showEditMessageDialog(activeSheetMessage);
+        });
+    }
+
+    const btnDelete = document.getElementById("btnSheetDelete");
+    if (btnDelete && typeof confirmDeleteMessage === "function") {
+        btnDelete.addEventListener("click", () => {
+            sheet.classList.add("hidden");
+            if (activeSheetMessage) confirmDeleteMessage(activeSheetMessage);
+        });
+    }
+}
+
+function setupAccountPrivacyEvents() {
+    const btnOpen = document.getElementById("btnOpenAccountPrivacyWeb");
+    const btnBack = document.getElementById("btnBackFromAccountPrivacy");
+    const screen = document.getElementById("accountPrivacyScreen");
+    const btnShowBlocked = document.getElementById("btnShowBlocked");
+    const btnBackFromBlocked = document.getElementById("btnBackFromBlocked");
+    const blockedScreen = document.getElementById("blockedScreen");
+
+    if (btnOpen && screen) {
+        btnOpen.addEventListener("click", () => {
+            screen.classList.remove("hidden");
+        });
+    }
+    if (btnBack && screen) {
+        btnBack.addEventListener("click", () => {
+            screen.classList.add("hidden");
+        });
+    }
+    if (btnShowBlocked && blockedScreen) {
+        btnShowBlocked.addEventListener("click", () => {
+            if (typeof renderBlockedUsersList === "function") {
+                renderBlockedUsersList();
+            }
+            blockedScreen.classList.remove("hidden");
+        });
+    }
+    if (btnBackFromBlocked && blockedScreen) {
+        btnBackFromBlocked.addEventListener("click", () => {
+            blockedScreen.classList.add("hidden");
+        });
+    }
+
+        const btnDeleteAcc = document.getElementById("btnDeleteAccountWeb");
+    const otpModal = document.getElementById("otpDeleteModal");
+    const btnCloseOtpModal = document.getElementById("btnCloseDeleteOtpModal");
+    const btnCancelOtp = document.getElementById("btnCancelDeleteOtp");
+    const btnConfirmDelete = document.getElementById("btnConfirmDeleteAccount");
+    const otpInput = document.getElementById("deleteOtpInput");
+    const otpError = document.getElementById("deleteOtpError");
+    const deleteOtpPhone = document.getElementById("deleteOtpPhone");
+
+    if (btnDeleteAcc && !btnDeleteAcc.dataset.bound) {
+        btnDeleteAcc.dataset.bound = "true";
+        btnDeleteAcc.addEventListener("click", () => {
+            const phone = localStorage.getItem("anonchat_test_phone") || (firebase.auth().currentUser ? firebase.auth().currentUser.phoneNumber : null) || "registered phone number";
+            const confirmMsg = "Are you sure you want to delete your account?\n\nAn OTP will be sent to " + phone + " to verify account deletion.";
+            if (confirm(confirmMsg)) {
+                if (deleteOtpPhone) deleteOtpPhone.textContent = phone;
+                if (otpInput) otpInput.value = "";
+                if (otpError) { otpError.style.display = "none"; otpError.textContent = ""; }
+                if (otpModal) otpModal.classList.remove("hidden");
+            }
+        });
+    }
+
+    if (btnCloseOtpModal && !btnCloseOtpModal.dataset.bound) {
+        btnCloseOtpModal.dataset.bound = "true";
+        btnCloseOtpModal.addEventListener("click", () => {
+            if (otpModal) otpModal.classList.add("hidden");
+        });
+    }
+
+    if (btnCancelOtp && !btnCancelOtp.dataset.bound) {
+        btnCancelOtp.dataset.bound = "true";
+        btnCancelOtp.addEventListener("click", () => {
+            if (otpModal) otpModal.classList.add("hidden");
+        });
+    }
+
+    if (btnConfirmDelete && !btnConfirmDelete.dataset.bound) {
+        btnConfirmDelete.dataset.bound = "true";
+        btnConfirmDelete.addEventListener("click", () => {
+            const code = otpInput ? otpInput.value.trim() : "";
+            if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+                if (otpError) {
+                    otpError.textContent = "Please enter a valid 6-digit OTP code";
+                    otpError.style.display = "block";
+                }
+                return;
+            }
+
+            if (otpError) otpError.style.display = "none";
+
+            const accountId = (typeof TestSession !== "undefined" && TestSession.currentUserId)
+                ? TestSession.currentUserId()
+                : (firebase.auth().currentUser ? firebase.auth().currentUser.uid : null);
+
+            const doLogout = () => {
+                if (typeof TestSession !== "undefined" && TestSession.signOut) {
+                    TestSession.signOut();
+                }
+                if (typeof firebase !== "undefined" && firebase.auth && firebase.auth().currentUser) {
+                    firebase.auth().signOut().catch(() => {});
+                }
+                localStorage.clear();
+                window.location.reload();
+            };
+
+            if (accountId && typeof firebase !== "undefined" && firebase.database) {
+                firebase.database().ref("/users/" + accountId).remove().then(() => {
+                    if (firebase.auth().currentUser) {
+                        firebase.auth().currentUser.delete().catch(() => {}).finally(doLogout);
+                    } else {
+                        doLogout();
+                    }
+                }).catch(err => {
+                    console.error("Error deleting user from database:", err);
+                    doLogout();
+                });
+            } else {
+                doLogout();
+            }
+        });
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initLanguageScreen();
+    setupLanguageEvents();
+    setupThemeEvents();
+    setupPhotoEvents();
+    setupMessageSheetEvents();
+    setupAccountPrivacyEvents();
+
+    const hasSelectedLang = localStorage.getItem("anonchat_web_language");
+    const langScreen = document.getElementById("languageScreen");
+    if (!hasSelectedLang && langScreen) {
+        langScreen.classList.remove("hidden");
+    } else if (langScreen) {
+        langScreen.classList.add("hidden");
+    }
+});

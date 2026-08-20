@@ -3,9 +3,9 @@
     <item
         android:id="@+id/nav_chats"
         android:icon="@drawable/ic_chat_room"
-        android:title="Chats" />
+        android:title="@string/nav_chats" />
     <item
         android:id="@+id/nav_profile"
         android:icon="@drawable/ic_person"
-        android:title="Profile" />
+        android:title="@string/nav_profile" />
 </menu>

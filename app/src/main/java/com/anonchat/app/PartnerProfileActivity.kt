@@ -13,7 +13,14 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import de.hdodenhof.circleimageview.CircleImageView
 
+import android.content.Context
+
 class PartnerProfileActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        val lang = LocaleHelper.getLanguage(newBase)
+        super.attachBaseContext(LocaleHelper.setLocale(newBase, lang))
+    }
 
     companion object {
         const val EXTRA_PARTNER_NAME = "EXTRA_PARTNER_NAME"
@@ -115,41 +122,56 @@ class PartnerProfileActivity : AppCompatActivity() {
             } catch (_: Exception) {}
         }
 
+        val applySnapshot = { snapshot: DataSnapshot ->
+            val profileSnap = snapshot.child("profile")
+
+            val dbName = (profileSnap.child("displayName").value ?: snapshot.child("displayName").value ?: snapshot.child("userName").value)
+                ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+            val dbGender = (profileSnap.child("gender").value ?: snapshot.child("gender").value)
+                ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+            val dbAge = (profileSnap.child("age").value ?: snapshot.child("age").value)?.toString()?.toIntOrNull()
+
+            val dbCity = (profileSnap.child("city").value ?: snapshot.child("city").value)
+                ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+            val dbAvatar = (snapshot.child("avatar").value ?: profileSnap.child("avatar").value)
+                ?.toString()?.takeIf { it.isNotBlank() && it != "null" }
+
+            if (!dbName.isNullOrEmpty()) tvName.text = dbName
+            if (!dbGender.isNullOrEmpty()) tvGender.text = dbGender
+            if (dbAge != null && dbAge >= 0) tvAge.text = "$dbAge yrs"
+            if (!dbCity.isNullOrEmpty()) tvCity.text = dbCity
+
+            if (!dbAvatar.isNullOrEmpty()) {
+                currentAvatarBase64 = dbAvatar
+                try {
+                    val bytes = Base64.decode(dbAvatar, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
+                } catch (_: Exception) {}
+            }
+
+            TestSession.cacheProfile(this@PartnerProfileActivity, partnerAccountId, dbName, dbGender, dbAge, dbCity, dbAvatar)
+        }
+
         // Unconditionally fetch real profile & avatar from Firebase Realtime Database node /users/$partnerAccountId
         FirebaseDatabase.getInstance().reference
             .child("users").child(partnerAccountId)
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    if (!snapshot.exists()) return
-
-                    val profileSnap = snapshot.child("profile")
-                    val dbName = profileSnap.child("displayName").getValue(String::class.java)
-                        ?: snapshot.child("displayName").getValue(String::class.java)
-                        ?: snapshot.child("userName").getValue(String::class.java)
-
-                    val dbGender = profileSnap.child("gender").getValue(String::class.java)
-                        ?: snapshot.child("gender").getValue(String::class.java)
-
-                    val dbAge = (profileSnap.child("age").value ?: snapshot.child("age").value)?.toString()?.toIntOrNull()
-
-                    val dbCity = profileSnap.child("city").getValue(String::class.java)
-                        ?: snapshot.child("city").getValue(String::class.java)
-
-                    val dbAvatar = snapshot.child("avatar").getValue(String::class.java)
-                        ?: profileSnap.child("avatar").getValue(String::class.java)
-
-                    if (!dbName.isNullOrEmpty()) tvName.text = dbName
-                    if (!dbGender.isNullOrEmpty()) tvGender.text = dbGender
-                    if (dbAge != null && dbAge >= 0) tvAge.text = "$dbAge yrs"
-                    if (!dbCity.isNullOrEmpty()) tvCity.text = dbCity
-
-                    if (!dbAvatar.isNullOrEmpty()) {
-                        currentAvatarBase64 = dbAvatar
-                        try {
-                            val bytes = Base64.decode(dbAvatar, Base64.DEFAULT)
-                            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                            if (bitmap != null) ivAvatar.setImageBitmap(bitmap)
-                        } catch (_: Exception) {}
+                    if (snapshot.exists()) {
+                        applySnapshot(snapshot)
+                    } else {
+                        FirebaseDatabase.getInstance().reference
+                            .child("users_by_phone").child(partnerAccountId)
+                            .addListenerForSingleValueEvent(object : ValueEventListener {
+                                override fun onDataChange(sPhone: DataSnapshot) {
+                                    if (sPhone.exists()) applySnapshot(sPhone)
+                                }
+                                override fun onCancelled(error: DatabaseError) {}
+                            })
                     }
                 }
 

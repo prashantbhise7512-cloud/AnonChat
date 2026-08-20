@@ -8,8 +8,99 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Screen 0: Auth Screen (Phone OTP Verification) -->
-    <div id="authScreen" class="screen auth-screen">
+    <!-- Screen 0: Initial Language Selection Screen -->
+    <div id="languageScreen" class="screen language-screen">
+        <div class="language-content">
+            <div class="language-header">
+                <span class="globe-icon">🌐</span>
+                <h1 class="language-title">Choose Language / भाषा चुनें</h1>
+                <p class="language-subtitle">Select your preferred language to continue</p>
+            </div>
+            
+            <!-- 2-Column 1:1 Square Cards Grid -->
+            <div id="languageGrid" class="language-grid">
+                <div class="language-square-card selected" data-code="en" onclick="selectWebLang('en')">
+                    <span class="lang-check">✓</span>
+                    <div class="lang-native">English</div>
+                    <div class="lang-english">English</div>
+                </div>
+                <div class="language-square-card" data-code="hi" onclick="selectWebLang('hi')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">हिन्दी</div>
+                    <div class="lang-english">Hindi</div>
+                </div>
+                <div class="language-square-card" data-code="mr" onclick="selectWebLang('mr')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">मराठी</div>
+                    <div class="lang-english">Marathi</div>
+                </div>
+                <div class="language-square-card" data-code="kn" onclick="selectWebLang('kn')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">ಕನ್ನಡ</div>
+                    <div class="lang-english">Kannada</div>
+                </div>
+                <div class="language-square-card" data-code="ta" onclick="selectWebLang('ta')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">தமிழ்</div>
+                    <div class="lang-english">Tamil</div>
+                </div>
+                <div class="language-square-card" data-code="te" onclick="selectWebLang('te')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">తెలుగు</div>
+                    <div class="lang-english">Telugu</div>
+                </div>
+                <div class="language-square-card" data-code="ml" onclick="selectWebLang('ml')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">മലയാളം</div>
+                    <div class="lang-english">Malayalam</div>
+                </div>
+                <div class="language-square-card" data-code="gu" onclick="selectWebLang('gu')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">ગુજરાતી</div>
+                    <div class="lang-english">Gujarati</div>
+                </div>
+                <div class="language-square-card" data-code="raj" onclick="selectWebLang('raj')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">राजस्थानी</div>
+                    <div class="lang-english">Rajasthani</div>
+                </div>
+                <div class="language-square-card" data-code="bho" onclick="selectWebLang('bho')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">भोजपुरी</div>
+                    <div class="lang-english">Bhojpuri</div>
+                </div>
+                <div class="language-square-card" data-code="pa" onclick="selectWebLang('pa')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">ਪੰਜਾਬੀ</div>
+                    <div class="lang-english">Punjabi</div>
+                </div>
+                <div class="language-square-card" data-code="har" onclick="selectWebLang('har')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">हरियाणवी</div>
+                    <div class="lang-english">Haryanvi</div>
+                </div>
+                <div class="language-square-card" data-code="bn" onclick="selectWebLang('bn')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">বাংলা</div>
+                    <div class="lang-english">Bengali</div>
+                </div>
+                <div class="language-square-card" data-code="ur" onclick="selectWebLang('ur')">
+                    <span class="lang-check hidden">✓</span>
+                    <div class="lang-native">اردو</div>
+                    <div class="lang-english">Urdu</div>
+                </div>
+            </div>
+
+            <button id="btnContinueLanguage" class="btn-primary btn-continue-language">Continue ▸</button>
+            <div id="languageProfileActions" class="language-profile-actions hidden" style="display: flex; gap: 8px; margin-top: auto; width: 100%;">
+                <button id="btnSaveLanguageWeb" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 12px;">Save</button>
+                <button id="btnCancelLanguageWeb" class="btn-secondary" style="flex: 1; padding: 0.75rem; border-radius: 12px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen 1: Auth Screen (Phone OTP Verification) -->
+    <div id="authScreen" class="screen auth-screen hidden">
         <div class="auth-content">
             <div class="logo">
                 <svg viewBox="0 0 24 24" width="64" height="64" fill="white">
@@ -237,14 +328,50 @@
                     </div>
                 </div>
 
+                <!-- Theme & Language Settings Card -->
+                <div class="profile-card">
+                    <h3 class="profile-card-title">🎨 App Theme Color</h3>
+                    <p class="profile-card-subtitle">Choose your preferred color theme or Dark mode</p>
+                    <div class="theme-circles-container">
+                        <div class="theme-circle theme-blue active" data-theme="blue"><span class="check-mark">✓</span></div>
+                        <div class="theme-circle theme-green" data-theme="green"><span class="check-mark">✓</span></div>
+                        <div class="theme-circle theme-purple" data-theme="purple"><span class="check-mark">✓</span></div>
+                        <div class="theme-circle theme-red" data-theme="red"><span class="check-mark">✓</span></div>
+                        <div class="theme-circle theme-teal" data-theme="teal"><span class="check-mark">✓</span></div>
+                        <div class="theme-circle theme-dark" data-theme="dark"><span class="check-mark">✓</span></div>
+                    </div>
+                </div>
+
                 <!-- Account & Settings Card -->
                 <div class="profile-card">
-                    <h3 class="profile-card-title">Account & Privacy</h3>
+                    <button id="btnOpenAccountPrivacyWeb" class="btn-menu-row">
+                        <span>🔒 Account & Privacy</span>
+                        <span class="row-arrow">›</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account & Privacy Screen (inside chatListScreen) -->
+        <div id="accountPrivacyScreen" class="account-privacy-screen hidden">
+            <header class="account-privacy-header">
+                <button id="btnBackFromAccountPrivacy" class="btn-back">←</button>
+                <h2>Account & Privacy</h2>
+            </header>
+            <div class="account-privacy-content">
+                <div class="profile-card" style="margin-top: 1rem;">
+                    <button id="btnChangeLanguageWeb" class="btn-menu-row">
+                        <span>🌐 App Language</span>
+                        <span class="row-arrow">›</span>
+                    </button>
                     <button id="btnShowBlocked" class="btn-menu-row">
                         <span>🚫 Blocked Users</span>
                         <span class="row-arrow">›</span>
                     </button>
-                    <button id="btnLogout" class="btn-logout-row">
+                    <button id="btnDeleteAccountWeb" class="btn-logout-row btn-delete-account-row" style="margin-top: 0.5rem; background: #FEF2F2; color: #DC2626; border: 1px solid #FEE2E2;">
+                        <span>🗑️ Delete Account</span>
+                    </button>
+                    <button id="btnLogout" class="btn-logout-row" style="margin-top: 0.5rem;">
                         <span>🚪 Logout</span>
                     </button>
                 </div>
@@ -317,6 +444,9 @@
         </div>
         <div class="input-area">
             <div class="input-wrapper">
+                <button type="button" id="btnAttachPhotoWeb" class="btn-attach-photo" title="Attach Photo" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">📷</button>
+                <input type="file" id="photoFileInput" accept="image/*" class="hidden"/>
+                <input type="file" id="photoCameraInput" accept="image/*" capture="environment" class="hidden"/>
                 <input type="text" id="messageInput" placeholder="Type a message…" autocomplete="off" maxlength="500"/>
                 <button id="btnSend" class="btn-send" disabled>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
@@ -346,6 +476,9 @@
         <div id="savedMessagesContainer" class="messages-container"></div>
         <div class="input-area">
             <div class="input-wrapper">
+                <button type="button" id="btnSavedAttachPhotoWeb" class="btn-attach-photo" title="Attach Photo" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">📷</button>
+                <input type="file" id="savedPhotoFileInput" accept="image/*" class="hidden"/>
+                <input type="file" id="savedPhotoCameraInput" accept="image/*" capture="environment" class="hidden"/>
                 <input type="text" id="savedMessageInput" placeholder="Type a message…" autocomplete="off" maxlength="500"/>
                 <button id="btnSavedSend" class="btn-send" disabled>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
@@ -379,6 +512,74 @@
                 <div><strong>City:</strong> <span id="partnerProfileCity">Not specified</span></div>
             </div>
             <button id="btnClosePartnerProfileBottom" class="btn-primary" style="width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <!-- Photo Source Modal (Camera vs Gallery) -->
+    <div id="photoSourceModal" class="bottom-sheet-overlay hidden" style="z-index: 1100;">
+        <div class="bottom-sheet-content" style="max-width: 360px; margin: 0 auto; text-align: center; padding: 20px;">
+            <div class="sheet-handle"></div>
+            <h3 style="margin: 0 0 16px 0; font-size: 1.1rem; color: #fff;">Attach Photo</h3>
+            <div class="sheet-actions" style="display: flex; flex-direction: column; gap: 8px;">
+                <button id="btnPickCamera" class="sheet-action-btn" style="color: #10B981; font-weight: 600; font-size: 1rem; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2c2c2e; border: 1px solid #3a3a3c; border-radius: 12px; cursor: pointer;">
+                    <span>📷 Take Photo (Camera)</span>
+                </button>
+                <button id="btnPickGallery" class="sheet-action-btn" style="color: #3B82F6; font-weight: 600; font-size: 1rem; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2c2c2e; border: 1px solid #3a3a3c; border-radius: 12px; cursor: pointer;">
+                    <span>🖼️ Choose from Gallery</span>
+                </button>
+                <button id="btnCancelPhotoSource" class="sheet-action-btn" style="color: #8e8e93; margin-top: 4px; padding: 12px; background: transparent; border: none; cursor: pointer;">
+                    <span>Cancel</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account OTP Modal -->
+    <div id="otpDeleteModal" class="screen chat-screen hidden" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+        <div class="profile-form" style="background: #1c1c1e; padding: 24px; border-radius: 16px; width: 90%; max-width: 380px; text-align: center; color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin: 0; font-size: 1.2rem; color: #FF3B30;">Delete Account</h2>
+                <button id="btnCloseDeleteOtpModal" class="btn-back" style="font-size: 1.2rem; cursor: pointer;">✕</button>
+            </div>
+            <p style="color: #8e8e93; font-size: 0.9rem; margin-bottom: 16px; line-height: 1.4;">
+                An OTP has been sent to your logged-in phone number <strong id="deleteOtpPhone" style="color: #fff;"></strong>. Enter the 6-digit OTP code to confirm account deletion.
+            </p>
+            <input type="text" id="deleteOtpInput" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" style="width: 100%; font-size: 1.5rem; letter-spacing: 0.3em; text-align: center; margin-bottom: 12px; padding: 12px; border-radius: 12px; border: 1px solid #3a3a3c; background: #2c2c2e; color: #fff; box-sizing: border-box;" />
+            <p id="deleteOtpError" style="color: #ff453a; font-size: 0.85rem; margin-bottom: 12px; display: none;"></p>
+            <button id="btnConfirmDeleteAccount" class="btn-primary" style="width: 100%; background: #FF3B30; color: #fff; font-weight: bold; padding: 12px; border-radius: 12px; border: none; cursor: pointer;">
+                Verify &amp; Delete Account
+            </button>
+            <button id="btnCancelDeleteOtp" class="btn-secondary" style="width: 100%; margin-top: 10px; background: transparent; color: #8e8e93; border: none; cursor: pointer;">
+                Cancel
+            </button>
+        </div>
+    </div>
+
+    <!-- Photo Lightbox Modal -->
+    <div id="imageLightboxModal" class="lightbox-modal hidden">
+        <span id="btnCloseLightbox" class="lightbox-close">✕</span>
+        <img id="lightboxImage" class="lightbox-img" alt="Full photo"/>
+    </div>
+
+    <!-- Message Options Bottom Sheet Modal -->
+    <div id="messageOptionsSheet" class="bottom-sheet-overlay hidden">
+        <div class="bottom-sheet-content">
+            <div class="sheet-handle"></div>
+            <div class="sheet-preview">
+                <span id="sheetSender" class="sheet-sender">You</span>
+                <p id="sheetSnippet" class="sheet-snippet">Message text</p>
+            </div>
+            <div class="sheet-actions">
+                <button id="btnSheetReply" class="sheet-action-btn action-reply">
+                    <span>↩️ Reply to Message</span>
+                </button>
+                <button id="btnSheetEdit" class="sheet-action-btn action-edit">
+                    <span>✏️ Edit Message</span>
+                </button>
+                <button id="btnSheetDelete" class="sheet-action-btn action-delete">
+                    <span>🗑️ Delete Message</span>
+                </button>
+            </div>
         </div>
     </div>
 

@@ -7,8 +7,9 @@ data class ChatMessage(
     val message: String = "",
     val timestamp: Long = 0L,
     val status: String = "sent", // "sent", "delivered", "read"
-    val type: String = "text", // "text", "voice"
+    val type: String = "text", // "text", "voice", "photo"
     val audioData: String? = null, // Base64 encoded audio
+    val imageData: String? = null, // Base64 encoded image
     val durationMs: Long = 0L, // Audio duration in milliseconds
     val replyToId: String? = null,
     val replyToSender: String? = null,

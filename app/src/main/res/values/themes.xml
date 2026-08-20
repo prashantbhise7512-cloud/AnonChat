@@ -1,12 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.AnonChat" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryVariant">@color/primary_dark</item>
-        <item name="colorSecondary">@color/accent</item>
-        <item name="android:statusBarColor">@color/status_bar</item>
-        <item name="android:windowBackground">@color/background</item>
-        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="colorPrimary">#1B72C0</item>
+        <item name="colorPrimaryVariant">#155DA0</item>
+        <item name="colorSecondary">#00BFA5</item>
+        <item name="android:statusBarColor">#145A9E</item>
+        <item name="android:windowBackground">#F5F7FA</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.AnonChat.Green" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#2E7D32</item>
+        <item name="colorPrimaryVariant">#1B5E20</item>
+        <item name="colorSecondary">#00BFA5</item>
+        <item name="android:statusBarColor">#1B5E20</item>
+        <item name="android:windowBackground">#F5F7FA</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.AnonChat.Purple" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#7B1FA2</item>
+        <item name="colorPrimaryVariant">#512DA8</item>
+        <item name="colorSecondary">#00BFA5</item>
+        <item name="android:statusBarColor">#512DA8</item>
+        <item name="android:windowBackground">#F5F7FA</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.AnonChat.Red" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#C62828</item>
+        <item name="colorPrimaryVariant">#B71C1C</item>
+        <item name="colorSecondary">#00BFA5</item>
+        <item name="android:statusBarColor">#B71C1C</item>
+        <item name="android:windowBackground">#F5F7FA</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.AnonChat.Teal" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#00695C</item>
+        <item name="colorPrimaryVariant">#004D40</item>
+        <item name="colorSecondary">#00BFA5</item>
+        <item name="android:statusBarColor">#004D40</item>
+        <item name="android:windowBackground">#F5F7FA</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+    </style>
+
+    <style name="Theme.AnonChat.Dark" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#212121</item>
+        <item name="colorPrimaryVariant">#000000</item>
+        <item name="colorSecondary">#00BFA5</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:windowBackground">#121212</item>
+        <item name="android:navigationBarColor">#1E1E1E</item>
     </style>
 
     <style name="ToolbarTitle">

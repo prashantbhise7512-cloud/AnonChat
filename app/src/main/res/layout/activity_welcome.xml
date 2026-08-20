@@ -38,7 +38,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Chat freely. Stay anonymous."
+        android:text="@string/welcome_tagline"
         android:textColor="#CCFFFFFF"
         android:textSize="16sp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -69,7 +69,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Your identity for this session"
+                android:text="@string/session_identity"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -86,7 +86,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="No one knows who you are 🎭"
+                android:text="@string/no_one_knows"
                 android:textColor="@color/text_secondary"
                 android:textSize="14sp" />
         </LinearLayout>
@@ -100,7 +100,7 @@
         android:layout_height="56dp"
         android:layout_marginHorizontal="32dp"
         android:layout_marginBottom="48dp"
-        android:text="Enter Chat Room"
+        android:text="@string/enter_chat_room"
         android:textColor="@color/primary"
         android:textSize="16sp"
         android:textStyle="bold"
