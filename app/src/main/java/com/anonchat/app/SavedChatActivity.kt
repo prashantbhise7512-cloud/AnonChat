@@ -309,12 +309,6 @@ class SavedChatActivity : AppCompatActivity() {
         popup.show()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        MessageNotificationService.activeChatId = null
-        threadListener?.let { threadRef?.removeEventListener(it) }
-    }
-
     private fun showPartnerProfileDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_partner_profile, null)
         val ivAvatar = dialogView.findViewById<CircleImageView>(R.id.ivPartnerAvatar)
@@ -428,5 +422,6 @@ class SavedChatActivity : AppCompatActivity() {
         if (::chat.isInitialized && MessageNotificationService.activeChatId == chat.id) {
             MessageNotificationService.activeChatId = null
         }
+        threadListener?.let { threadRef?.removeEventListener(it) }
     }
 }

@@ -79,6 +79,10 @@ object TestSession {
     fun uid(context: Context): String =
         prefs(context).getString(KEY_UID, null) ?: "test_anonymous"
 
+    fun setUserId(context: Context, uid: String) {
+        prefs(context).edit().putString(KEY_UID, uid).apply()
+    }
+
     fun profileId(context: Context): String {
         val existing = prefs(context).getString(KEY_PROFILE_ID, null)
         if (!existing.isNullOrBlank()) return existing
