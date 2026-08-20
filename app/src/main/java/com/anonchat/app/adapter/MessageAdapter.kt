@@ -418,19 +418,32 @@ private fun bindQuotedView(itemView: View, message: ChatMessage) {
     }
 }
 
-private fun bindTicks(tvTick: TextView, status: String) {
-    when (status) {
-        "read" -> {
-            tvTick.text = "✓✓"
-            tvTick.setTextColor(android.graphics.Color.parseColor("#34B7F1"))
+private fun bindTicks(view: View, status: String) {
+    if (view is TextView) {
+        when (status) {
+            "read" -> {
+                view.text = "✓✓"
+                view.setTextColor(android.graphics.Color.parseColor("#34B7F1"))
+            }
+            "delivered" -> {
+                view.text = "✓✓"
+                view.setTextColor(android.graphics.Color.parseColor("#99FFFFFF"))
+            }
+            else -> {
+                view.text = "✓"
+                view.setTextColor(android.graphics.Color.parseColor("#99FFFFFF"))
+            }
         }
-        "delivered" -> {
-            tvTick.text = "✓✓"
-            tvTick.setTextColor(android.graphics.Color.parseColor("#99FFFFFF"))
-        }
-        else -> {
-            tvTick.text = "✓"
-            tvTick.setTextColor(android.graphics.Color.parseColor("#99FFFFFF"))
+    } else if (view is ImageView) {
+        when (status) {
+            "read" -> {
+                view.setImageResource(R.drawable.ic_check_sent)
+                view.setColorFilter(android.graphics.Color.parseColor("#34B7F1"))
+            }
+            else -> {
+                view.setImageResource(R.drawable.ic_check_sent)
+                view.setColorFilter(android.graphics.Color.parseColor("#99FFFFFF"))
+            }
         }
     }
 }

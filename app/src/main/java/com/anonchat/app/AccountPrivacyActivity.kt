@@ -150,7 +150,6 @@ class AccountPrivacyActivity : AppCompatActivity() {
             .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
-    }
 
     override fun onResume() {
         super.onResume()

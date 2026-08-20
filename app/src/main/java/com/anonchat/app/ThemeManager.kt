@@ -26,8 +26,8 @@ object ThemeManager {
         prefs.edit().putString(PREF_KEY_THEME, themeKey).apply()
     }
 
-    fun applyTheme(activity: Activity) {
-        val themeKey = getSelectedTheme(activity)
+    fun applyTheme(context: Context) {
+        val themeKey = getSelectedTheme(context)
         val themeResId = when (themeKey) {
             THEME_GREEN -> R.style.Theme_AnonChat_Green
             THEME_PURPLE -> R.style.Theme_AnonChat_Purple
@@ -36,7 +36,9 @@ object ThemeManager {
             THEME_DARK -> R.style.Theme_AnonChat_Dark
             else -> R.style.Theme_AnonChat
         }
-        activity.setTheme(themeResId)
+        if (context is Activity) {
+            context.setTheme(themeResId)
+        }
 
         if (themeKey == THEME_DARK) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
