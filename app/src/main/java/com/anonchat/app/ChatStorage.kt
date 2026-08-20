@@ -35,6 +35,58 @@ object ChatStorage {
         }
     }
 
+    fun isSameConversation(a: SavedChat, b: SavedChat): Boolean {
+        if (a.id == b.id) return true
+        if (!a.threadId.isNullOrBlank() && !b.threadId.isNullOrBlank() && a.threadId == b.threadId) return true
+        if (!a.partnerAccountId.isNullOrBlank() && !b.partnerAccountId.isNullOrBlank() && a.partnerAccountId == b.partnerAccountId) return true
+        return false
+    }
+
+    fun mergeTwoChats(primary: SavedChat, secondary: SavedChat): SavedChat {
+        val combinedMessages = (primary.messages + secondary.messages)
+            .groupBy { if (it.id.isNotBlank()) it.id else "${it.timestamp}_${it.message}" }
+            .map { (_, msgs) -> msgs.first() }
+            .sortedBy { it.timestamp }
+
+        val newestSavedAt = maxOf(primary.savedAt, secondary.savedAt)
+        val bestPartnerName = primary.partnerName.ifBlank { secondary.partnerName }
+        val bestUserName = primary.userName.ifBlank { secondary.userName }
+        val bestPartnerAccountId = primary.partnerAccountId ?: secondary.partnerAccountId
+        val bestThreadId = primary.threadId ?: secondary.threadId
+        val bestGender = primary.partnerGender ?: secondary.partnerGender
+        val bestAge = primary.partnerAge ?: secondary.partnerAge
+        val bestCity = primary.partnerCity ?: secondary.partnerCity
+        val bestAvatar = primary.partnerAvatar ?: secondary.partnerAvatar
+
+        return primary.copy(
+            savedAt = newestSavedAt,
+            userName = bestUserName,
+            partnerName = bestPartnerName,
+            partnerAccountId = bestPartnerAccountId,
+            threadId = bestThreadId,
+            partnerGender = bestGender,
+            partnerAge = bestAge,
+            partnerCity = bestCity,
+            partnerAvatar = bestAvatar,
+            messages = combinedMessages
+        )
+    }
+
+    fun deduplicateChats(chats: List<SavedChat>): List<SavedChat> {
+        val result = mutableListOf<SavedChat>()
+        for (chat in chats) {
+            val existingIndex = result.indexOfFirst { isSameConversation(it, chat) }
+            if (existingIndex >= 0) {
+                result[existingIndex] = mergeTwoChats(result[existingIndex], chat)
+            } else {
+                result.add(chat)
+            }
+        }
+        return result.sortedByDescending { chat ->
+            chat.messages.lastOrNull()?.timestamp ?: chat.savedAt
+        }
+    }
+
     fun getSavedChats(context: Context): List<SavedChat> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val key = getStorageKey(context)
@@ -54,27 +106,31 @@ object ChatStorage {
 
     fun saveChat(context: Context, chat: SavedChat) {
         val chats = getSavedChats(context).toMutableList()
-        val index = chats.indexOfFirst { it.id == chat.id }
+        val index = chats.indexOfFirst { isSameConversation(it, chat) }
         if (index >= 0) {
-            chats[index] = chat
+            chats[index] = mergeTwoChats(chats[index], chat)
         } else {
             chats.add(0, chat)
         }
-        if (chats.size > MAX_SAVED) chats.removeLast()
-        persistChats(context, chats, syncCloud = true)
+        val deduplicated = deduplicateChats(chats)
+        val finalChats = if (deduplicated.size > MAX_SAVED) deduplicated.take(MAX_SAVED) else deduplicated
+        persistChats(context, finalChats, syncCloud = true)
     }
 
     fun deleteChat(context: Context, chatId: String) {
         val chats = getSavedChats(context)
-        val chatToDelete = chats.find { it.id == chatId }
+        val chatToDelete = chats.find { it.id == chatId || (it.threadId != null && it.threadId == chatId) }
 
         // Save the thread reference so we can still receive future messages
         if (chatToDelete?.threadId != null) {
             saveDeletedThread(context, chatToDelete)
         }
 
-        val remaining = chats.filter { it.id != chatId }
-        persistChats(context, remaining, syncCloud = true)
+        val remaining = chats.filter { chat ->
+            val matchesToDelete = chatToDelete?.let { isSameConversation(chat, it) } ?: (chat.id == chatId)
+            !matchesToDelete
+        }
+        persistChats(context, deduplicateChats(remaining), syncCloud = true)
     }
 
     /** Store minimal info about deleted threads so new messages can re-create the chat */
@@ -220,53 +276,38 @@ object ChatStorage {
     }
 
     private fun mergeChats(local: List<SavedChat>, cloud: List<SavedChat>): List<SavedChat> {
-        val map = mutableMapOf<String, SavedChat>()
-        (local + cloud).forEach { chat ->
-            val existing = map[chat.id]
-            if (existing == null) {
-                map[chat.id] = chat
-            } else {
-                val combinedMessages = (existing.messages + chat.messages)
-                    .groupBy { it.id }
-                    .map { (_, msgs) -> msgs.first() }
-                    .sortedBy { it.timestamp }
-                map[chat.id] = if (chat.savedAt >= existing.savedAt) {
-                    chat.copy(messages = combinedMessages)
-                } else {
-                    existing.copy(messages = combinedMessages)
-                }
-            }
-        }
-        return map.values.sortedByDescending { it.savedAt }
+        return deduplicateChats(local + cloud)
     }
 
     fun updateChatMessages(context: Context, chatId: String, newMessages: List<ChatMessage>) {
         val chats = getSavedChats(context).toMutableList()
-        val index = chats.indexOfFirst { it.id == chatId }
+        val index = chats.indexOfFirst { it.id == chatId || (it.threadId != null && it.threadId == chatId) }
         if (index >= 0) {
             chats[index] = chats[index].copy(messages = newMessages)
-            persistChats(context, chats, syncCloud = true)
+            persistChats(context, deduplicateChats(chats), syncCloud = true)
         }
     }
 
     fun updateSavedChat(context: Context, updatedChat: SavedChat) {
         val chats = getSavedChats(context).toMutableList()
-        val index = chats.indexOfFirst { it.id == updatedChat.id }
+        val index = chats.indexOfFirst { isSameConversation(it, updatedChat) }
         if (index >= 0) {
-            chats[index] = updatedChat
-            persistChats(context, chats, syncCloud = true)
+            chats[index] = mergeTwoChats(chats[index], updatedChat)
+        } else {
+            chats.add(0, updatedChat)
         }
+        persistChats(context, deduplicateChats(chats), syncCloud = true)
     }
 
     fun appendMessageToChat(context: Context, chatId: String, message: ChatMessage) {
         val chats = getSavedChats(context).toMutableList()
-        val index = chats.indexOfFirst { it.id == chatId }
+        val index = chats.indexOfFirst { it.id == chatId || (it.threadId != null && it.threadId == chatId) }
         if (index >= 0) {
             val chat = chats[index]
             if (chat.messages.any { it.id == message.id }) return
             val updated = chat.copy(messages = chat.messages + message)
             chats[index] = updated
-            persistChats(context, chats, syncCloud = true)
+            persistChats(context, deduplicateChats(chats), syncCloud = true)
         }
     }
 
@@ -282,8 +323,9 @@ object ChatStorage {
                 chat
             }
         }
-        if (updated != chats) {
-            persistChats(context, updated, syncCloud = true)
+        val deduplicated = deduplicateChats(updated)
+        if (deduplicated != chats) {
+            persistChats(context, deduplicated, syncCloud = true)
         }
     }
 
@@ -316,6 +358,14 @@ object ChatStorage {
                         put("message", msg.message)
                         put("timestamp", msg.timestamp)
                         put("status", msg.status)
+                        put("type", msg.type)
+                        put("audioData", msg.audioData ?: "")
+                        put("durationMs", msg.durationMs)
+                        put("replyToId", msg.replyToId ?: "")
+                        put("replyToSender", msg.replyToSender ?: "")
+                        put("replyToText", msg.replyToText ?: "")
+                        put("isEdited", msg.isEdited)
+                        put("isDeleted", msg.isDeleted)
                     })
                 }
                 put("messages", msgsArray)
@@ -326,7 +376,7 @@ object ChatStorage {
     }
 
     private fun parseSavedChats(json: String): List<SavedChat> {
-        val result = mutableListOf<SavedChat>()
+        val rawList = mutableListOf<SavedChat>()
         try {
             val arr = JSONArray(json)
             for (i in 0 until arr.length()) {
@@ -341,10 +391,18 @@ object ChatStorage {
                         senderName = m.getString("senderName"),
                         message = m.getString("message"),
                         timestamp = m.getLong("timestamp"),
-                        status = m.optString("status", "sent")
+                        status = m.optString("status", "sent"),
+                        type = m.optString("type", "text"),
+                        audioData = m.optString("audioData", "").ifEmpty { null },
+                        durationMs = m.optLong("durationMs", 0L),
+                        replyToId = m.optString("replyToId", "").ifEmpty { null },
+                        replyToSender = m.optString("replyToSender", "").ifEmpty { null },
+                        replyToText = m.optString("replyToText", "").ifEmpty { null },
+                        isEdited = m.optBoolean("isEdited", false),
+                        isDeleted = m.optBoolean("isDeleted", false)
                     ))
                 }
-                result.add(SavedChat(
+                rawList.add(SavedChat(
                     id = obj.getString("id"),
                     savedAt = obj.getLong("savedAt"),
                     userName = obj.getString("userName"),
@@ -359,6 +417,6 @@ object ChatStorage {
                 ))
             }
         } catch (_: Exception) {}
-        return result
+        return deduplicateChats(rawList)
     }
 }

@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <!-- Custom header bar (replaces MaterialToolbar title/subtitle) -->
+    <!-- Custom header bar -->
     <LinearLayout
         android:id="@+id/toolbar"
         android:layout_width="0dp"
@@ -21,7 +21,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Back button -->
         <ImageView
             android:id="@+id/btnBack"
             android:layout_width="48dp"
@@ -32,7 +31,6 @@
             android:src="@drawable/ic_back"
             app:tint="@color/white" />
 
-        <!-- Avatar -->
         <de.hdodenhof.circleimageview.CircleImageView
             android:id="@+id/ivToolbarAvatar"
             android:layout_width="36dp"
@@ -42,7 +40,6 @@
             app:civ_border_color="#80FFFFFF"
             app:civ_border_width="2dp" />
 
-        <!-- Title + subtitle column — takes all remaining space -->
         <LinearLayout
             android:id="@+id/toolbarTitleBlock"
             android:layout_width="0dp"
@@ -72,7 +69,6 @@
                 tools:text="last seen 5 min ago" />
         </LinearLayout>
 
-        <!-- Three-dot menu -->
         <ImageView
             android:id="@+id/btnOverflowMenu"
             android:layout_width="40dp"
@@ -90,7 +86,7 @@
         android:id="@+id/swipeRefreshSavedChat"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@id/inputCard"
+        app:layout_constraintBottom_toTopOf="@id/layoutReplyPreview"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/toolbar">
@@ -102,6 +98,61 @@
             android:clipToPadding="false"
             android:padding="12dp" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <!-- Reply Preview Bar -->
+    <LinearLayout
+        android:id="@+id/layoutReplyPreview"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bg_quoted_other"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/inputCard"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvReplyingToSender"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/primary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                tools:text="Replying to AnonUser" />
+
+            <TextView
+                android:id="@+id/tvReplyingToText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/on_surface"
+                android:textSize="13sp"
+                tools:text="Quoted message snippet" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/btnCloseReplyPreview"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close reply preview"
+            android:padding="4dp"
+            android:src="@drawable/ic_close"
+            app:tint="@color/text_secondary" />
+    </LinearLayout>
 
     <!-- Input Card -->
     <com.google.android.material.card.MaterialCardView
@@ -119,6 +170,7 @@
         app:strokeWidth="0.5dp">
 
         <LinearLayout
+            android:id="@+id/layoutTextInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
@@ -146,15 +198,35 @@
                 android:textSize="16sp" />
 
             <FrameLayout
+                android:id="@+id/btnRecord"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_send_button"
+                android:clickable="true"
+                android:contentDescription="Record voice note"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Record"
+                    android:src="@drawable/ic_mic" />
+            </FrameLayout>
+
+            <FrameLayout
                 android:id="@+id/btnSend"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="4dp"
                 android:background="@drawable/bg_send_button"
                 android:clickable="true"
                 android:contentDescription="@string/send"
                 android:focusable="true"
-                android:foreground="?attr/selectableItemBackgroundBorderless">
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone">
 
                 <ImageView
                     android:layout_width="22dp"
@@ -163,7 +235,63 @@
                     android:contentDescription="@string/send"
                     android:src="@drawable/ic_send" />
             </FrameLayout>
+        </LinearLayout>
 
+        <!-- Recording active indicator bar -->
+        <LinearLayout
+            android:id="@+id/layoutRecording"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="6dp"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:background="@drawable/bg_online_dot"
+                android:backgroundTint="#F44336" />
+
+            <TextView
+                android:id="@+id/tvRecordTimer"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="Recording 0:00"
+                android:textColor="#F44336"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btnCancelRecord"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:padding="8dp"
+                android:text="Cancel"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
+
+            <FrameLayout
+                android:id="@+id/btnSendRecord"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_send_button"
+                android:clickable="true"
+                android:contentDescription="Send voice note"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Send"
+                    android:src="@drawable/ic_send" />
+            </FrameLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

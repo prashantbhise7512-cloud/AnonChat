@@ -130,8 +130,7 @@ class PartnerProfileActivity : AppCompatActivity() {
                     val dbGender = profileSnap.child("gender").getValue(String::class.java)
                         ?: snapshot.child("gender").getValue(String::class.java)
 
-                    val dbAge = profileSnap.child("age").getValue(Long::class.java)?.toInt()
-                        ?: snapshot.child("age").getValue(Long::class.java)?.toInt()
+                    val dbAge = (profileSnap.child("age").value ?: snapshot.child("age").value)?.toString()?.toIntOrNull()
 
                     val dbCity = profileSnap.child("city").getValue(String::class.java)
                         ?: snapshot.child("city").getValue(String::class.java)

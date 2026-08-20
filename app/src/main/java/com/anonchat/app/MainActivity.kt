@@ -108,10 +108,143 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var replyingMessage: ChatMessage? = null
+
     private fun setupRecyclerView() {
-        adapter = MessageAdapter(userId)
+        adapter = MessageAdapter(userId) { selectedMsg ->
+            showMessageOptionsDialog(selectedMsg)
+        }
         recyclerMessages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         recyclerMessages.adapter = adapter
+    }
+
+    private fun showMessageOptionsDialog(message: ChatMessage) {
+        val options = mutableListOf<String>()
+        options.add("Reply")
+        val canEdit = (message.senderId == userId) && (message.type == "text") && !message.isDeleted
+        if (canEdit) {
+            options.add("Edit Message")
+        }
+        if (!message.isDeleted) {
+            options.add("Delete Message")
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Message Options")
+            .setItems(options.toTypedArray()) { _, which ->
+                when (options[which]) {
+                    "Reply" -> setReplyMessage(message)
+                    "Edit Message" -> showEditMessageDialog(message)
+                    "Delete Message" -> confirmDeleteMessage(message)
+                }
+            }
+            .show()
+    }
+
+    private fun showEditMessageDialog(message: ChatMessage) {
+        val input = EditText(this).apply {
+            setText(message.message)
+            setSelection(text.length)
+            setPadding(40, 30, 40, 30)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Edit Message")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val newText = input.text.toString().trim()
+                if (newText.isNotEmpty() && newText != message.message) {
+                    performEditMessage(message, newText)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun performEditMessage(message: ChatMessage, newText: String) {
+        val idx = messages.indexOfFirst { it.id == message.id }
+        if (idx >= 0) {
+            messages[idx] = messages[idx].copy(message = newText, isEdited = true)
+            adapter.submitList(messages.toList())
+        }
+
+        val sessionId = currentSessionId
+        if (sessionId != null) {
+            val ref = sessionsRef.child(sessionId).child("messages")
+            ref.orderByChild("id").equalTo(message.id).addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    for (child in snapshot.children) {
+                        child.ref.child("message").setValue(newText)
+                        child.ref.child("isEdited").setValue(true)
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
+
+        activeThreadId?.let { threadId ->
+            val ref = FirebaseDatabase.getInstance().reference.child("threads").child(threadId).child("messages")
+            ref.orderByChild("id").equalTo(message.id).addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    for (child in snapshot.children) {
+                        child.ref.child("message").setValue(newText)
+                        child.ref.child("isEdited").setValue(true)
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
+    }
+
+    private fun confirmDeleteMessage(message: ChatMessage) {
+        AlertDialog.Builder(this)
+            .setTitle("Delete Message")
+            .setMessage("Are you sure you want to delete this message?")
+            .setPositiveButton("Delete") { _, _ ->
+                performDeleteMessage(message)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun performDeleteMessage(message: ChatMessage) {
+        val idx = messages.indexOfFirst { it.id == message.id }
+        if (idx >= 0) {
+            messages[idx] = messages[idx].copy(
+                isDeleted = true,
+                message = "🚫 This message was deleted",
+                audioData = null
+            )
+            adapter.submitList(messages.toList())
+        }
+
+        val sessionId = currentSessionId
+        if (sessionId != null) {
+            val ref = sessionsRef.child(sessionId).child("messages")
+            ref.orderByChild("id").equalTo(message.id).addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    for (child in snapshot.children) {
+                        child.ref.child("isDeleted").setValue(true)
+                        child.ref.child("message").setValue("🚫 This message was deleted")
+                        child.ref.child("audioData").setValue("")
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
+
+        activeThreadId?.let { threadId ->
+            val ref = FirebaseDatabase.getInstance().reference.child("threads").child(threadId).child("messages")
+            ref.orderByChild("id").equalTo(message.id).addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    for (child in snapshot.children) {
+                        child.ref.child("isDeleted").setValue(true)
+                        child.ref.child("message").setValue("🚫 This message was deleted")
+                        child.ref.child("audioData").setValue("")
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
     }
 
     private fun setupInput() {
@@ -123,6 +256,9 @@ class MainActivity : AppCompatActivity() {
         }
         editMessage.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) { sendMessage(); true } else false
+        }
+        findViewById<ImageView>(R.id.btnCloseReplyPreview)?.setOnClickListener {
+            clearReplyMessage()
         }
     }
 
@@ -308,11 +444,27 @@ class MainActivity : AppCompatActivity() {
             override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
                 val msg = snapshotToMessage(snapshot) ?: return
                 messages.add(msg)
+                messages.sortBy { it.timestamp }
                 adapter.submitList(messages.toList())
                 recyclerMessages.scrollToPosition(messages.size - 1)
                 updateEmptyState()
             }
-            override fun onChildChanged(s: DataSnapshot, p: String?) {}
+            override fun onChildChanged(s: DataSnapshot, p: String?) {
+                val msgId = s.child("id").getValue(String::class.java) ?: return
+                val idx = messages.indexOfFirst { it.id == msgId }
+                if (idx >= 0) {
+                    val text = s.child("message").getValue(String::class.java) ?: messages[idx].message
+                    val isEdited = s.child("isEdited").getValue(Boolean::class.java) ?: messages[idx].isEdited
+                    val isDeleted = s.child("isDeleted").getValue(Boolean::class.java) ?: messages[idx].isDeleted
+
+                    messages[idx] = messages[idx].copy(
+                        message = text,
+                        isEdited = isEdited,
+                        isDeleted = isDeleted
+                    )
+                    adapter.submitList(messages.toList())
+                }
+            }
             override fun onChildRemoved(s: DataSnapshot) {}
             override fun onChildMoved(s: DataSnapshot, p: String?) {}
             override fun onCancelled(e: DatabaseError) {}
@@ -342,19 +494,10 @@ class MainActivity : AppCompatActivity() {
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val threadId = snapshot.getValue(String::class.java)
-                    setThreadDebug(threadId)
                     listenForThreadMessages(threadId)
                 }
                 override fun onCancelled(error: DatabaseError) {}
             })
-    }
-
-    private fun setThreadDebug(threadId: String?) {
-        tvOnlineCount.text = if (threadId.isNullOrBlank()) {
-            "Online"
-        } else {
-            "Online • thread: ${threadId.takeIf { it.length <= 40 } ?: threadId.take(40) + "..."}"
-        }
     }
 
     private fun listenForThreadMessages(threadId: String?) {
@@ -442,10 +585,15 @@ class MainActivity : AppCompatActivity() {
         val partnerName = currentPartnerName ?: "AnnoUser"
 
         if (partnerId == null) {
-            // Cannot determine partner — save locally without thread
             doSaveChat(partnerName, null, null, null, null)
             return
         }
+
+        val cachedGender = TestSession.cachedProfileGender(this, partnerId)
+        val cachedAge = TestSession.cachedProfileAge(this, partnerId)
+        val cachedCity = TestSession.cachedProfileCity(this, partnerId)
+        val cachedAvatar = TestSession.cachedProfileAvatar(this, partnerId)
+            ?: getSharedPreferences("anonchat_prefs", MODE_PRIVATE).getString("avatar_$partnerId", null)
 
         if (!AuthActivity.TEST_MODE) {
             val db = com.google.firebase.database.FirebaseDatabase.getInstance()
@@ -453,33 +601,77 @@ class MainActivity : AppCompatActivity() {
                 .addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
                     override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                         val profileSnapshot = snapshot.child("profile")
-                        val displayName = profileSnapshot.child("displayName").getValue(String::class.java) ?: partnerName
+                        val displayName = profileSnapshot.child("displayName").getValue(String::class.java)
+                            ?: snapshot.child("displayName").getValue(String::class.java)
+                            ?: partnerName
+
                         val gender = profileSnapshot.child("gender").getValue(String::class.java)
-                        val age = profileSnapshot.child("age").getValue(Long::class.java)?.toInt()
+                            ?: snapshot.child("gender").getValue(String::class.java)
+                            ?: cachedGender
+
+                        val rawAge = profileSnapshot.child("age").value ?: snapshot.child("age").value
+                        val age = rawAge?.toString()?.toIntOrNull() ?: cachedAge
+
                         val city = profileSnapshot.child("city").getValue(String::class.java)
-                        doSaveChat(displayName, gender, age, city, null)
+                            ?: snapshot.child("city").getValue(String::class.java)
+                            ?: cachedCity
+
+                        val avatar = snapshot.child("avatar").getValue(String::class.java)
+                            ?: profileSnapshot.child("avatar").getValue(String::class.java)
+                            ?: cachedAvatar
+
+                        doSaveChat(displayName, gender, age, city, avatar)
                     }
                     override fun onCancelled(e: com.google.firebase.database.DatabaseError) {
-                        doSaveChat(partnerName, null, null, null, null)
+                        doSaveChat(partnerName, cachedGender, cachedAge, cachedCity, cachedAvatar)
                     }
                 })
         } else {
-            doSaveChat(partnerName, null, null, null, null)
+            doSaveChat(partnerName, cachedGender, cachedAge, cachedCity, cachedAvatar)
         }
+    }
+
+    private fun setReplyMessage(message: ChatMessage) {
+        replyingMessage = message
+        val layoutReplyPreview = findViewById<View>(R.id.layoutReplyPreview) ?: return
+        val tvReplyingToSender = findViewById<TextView>(R.id.tvReplyingToSender) ?: return
+        val tvReplyingToText = findViewById<TextView>(R.id.tvReplyingToText) ?: return
+
+        val senderName = if (message.senderId == userId) "You" else (currentPartnerName ?: "Stranger")
+        val snippet = if (message.type == "voice") "🎤 Voice message" else message.message
+
+        tvReplyingToSender.text = "Replying to $senderName"
+        tvReplyingToText.text = snippet
+        layoutReplyPreview.visibility = View.VISIBLE
+
+        editMessage.requestFocus()
+    }
+
+    private fun clearReplyMessage() {
+        replyingMessage = null
+        findViewById<View>(R.id.layoutReplyPreview)?.visibility = View.GONE
     }
 
     private fun sendMessage() {
         val text = editMessage.text?.toString()?.trim() ?: return
         if (text.isEmpty() || currentSessionId == null) return
 
+        val reply = replyingMessage
         val msgRef = sessionsRef.child(currentSessionId!!).child("messages").push()
-        val chatMessage = mapOf(
+        val chatMessage = mutableMapOf<String, Any>(
             "id" to (msgRef.key ?: ""),
             "senderId" to userId,
             "senderName" to userName,
             "message" to text,
-            "timestamp" to ServerValue.TIMESTAMP
+            "timestamp" to ServerValue.TIMESTAMP,
+            "type" to "text"
         )
+        reply?.let {
+            chatMessage["replyToId"] = it.id
+            chatMessage["replyToSender"] = if (it.senderId == userId) "You" else (currentPartnerName ?: "Stranger")
+            chatMessage["replyToText"] = if (it.type == "voice") "🎤 Voice message" else it.message
+        }
+
         msgRef.setValue(chatMessage)
 
         activeThreadId?.let { threadId ->
@@ -490,6 +682,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         editMessage.text?.clear()
+        clearReplyMessage()
     }
 
     // === UI STATES ===
@@ -609,17 +802,24 @@ class MainActivity : AppCompatActivity() {
             listOf(userId, partnerId).sorted().joinToString("_")
         } else null
 
+        val existing = ChatStorage.getSavedChats(this)
+        val existingChat = existing.find {
+            (threadId != null && it.threadId == threadId) ||
+            (partnerId != null && it.partnerAccountId == partnerId)
+        }
+        val chatId = existingChat?.id ?: UUID.randomUUID().toString()
+
         val savedChat = SavedChat(
-            id = UUID.randomUUID().toString(),
+            id = chatId,
             savedAt = System.currentTimeMillis(),
             userName = userName,
             partnerName = partnerName,
             partnerAccountId = partnerId,
             threadId = threadId,
-            partnerGender = gender,
-            partnerAge = age,
-            partnerCity = city,
-            partnerAvatar = avatar,
+            partnerGender = gender ?: existingChat?.partnerGender,
+            partnerAge = age ?: existingChat?.partnerAge,
+            partnerCity = city ?: existingChat?.partnerCity,
+            partnerAvatar = avatar ?: existingChat?.partnerAvatar,
             messages = messages.toList()
         )
         ChatStorage.saveChat(this, savedChat)
@@ -634,16 +834,22 @@ class MainActivity : AppCompatActivity() {
             )
             // Copy existing messages to the thread so both sides have them
             messages.filter { it.senderId != "system" }.forEach { msg ->
-                db.reference.child("threads").child(threadId).child("messages").push().setValue(
-                    mapOf(
-                        "id" to msg.id,
-                        "senderId" to msg.senderId,
-                        "senderName" to msg.senderName,
-                        "message" to msg.message,
-                        "timestamp" to msg.timestamp,
-                        "status" to "read"
-                    )
+                val payload = mutableMapOf<String, Any>(
+                    "id" to msg.id,
+                    "senderId" to msg.senderId,
+                    "senderName" to msg.senderName,
+                    "message" to msg.message,
+                    "timestamp" to msg.timestamp,
+                    "status" to "read",
+                    "type" to msg.type
                 )
+                msg.audioData?.let { payload["audioData"] = it }
+                if (msg.durationMs > 0) payload["durationMs"] = msg.durationMs
+                msg.replyToId?.let { payload["replyToId"] = it }
+                msg.replyToSender?.let { payload["replyToSender"] = it }
+                msg.replyToText?.let { payload["replyToText"] = it }
+
+                db.reference.child("threads").child(threadId).child("messages").push().setValue(payload)
             }
         }
     }
@@ -711,7 +917,13 @@ class MainActivity : AppCompatActivity() {
                 senderId = snapshot.child("senderId").getValue(String::class.java) ?: "",
                 senderName = snapshot.child("senderName").getValue(String::class.java) ?: "",
                 message = snapshot.child("message").getValue(String::class.java) ?: "",
-                timestamp = snapshot.child("timestamp").getValue(Long::class.java) ?: 0L
+                timestamp = snapshot.child("timestamp").getValue(Long::class.java) ?: 0L,
+                type = snapshot.child("type").getValue(String::class.java) ?: "text",
+                audioData = snapshot.child("audioData").getValue(String::class.java),
+                durationMs = snapshot.child("durationMs").getValue(Long::class.java) ?: 0L,
+                replyToId = snapshot.child("replyToId").getValue(String::class.java),
+                replyToSender = snapshot.child("replyToSender").getValue(String::class.java),
+                replyToText = snapshot.child("replyToText").getValue(String::class.java)
             )
         } catch (e: Exception) { null }
     }

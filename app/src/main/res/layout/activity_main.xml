@@ -197,8 +197,61 @@
             app:backgroundTint="@color/leave_button_bg"
             app:cornerRadius="12dp"
             app:icon="@drawable/ic_leave"
-            app:iconSize="14dp"
-            app:iconTint="@color/leave_button_text" />
+    </LinearLayout>
+
+    <!-- Reply Preview Bar -->
+    <LinearLayout
+        android:id="@+id/layoutReplyPreview"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bg_quoted_other"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/inputCard"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvReplyingToSender"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/primary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                tools:text="Replying to AnonUser" />
+
+            <TextView
+                android:id="@+id/tvReplyingToText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/on_surface"
+                android:textSize="13sp"
+                tools:text="Quoted message snippet" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/btnCloseReplyPreview"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close reply preview"
+            android:padding="4dp"
+            android:src="@drawable/ic_close"
+            app:tint="@color/text_secondary" />
     </LinearLayout>
 
     <!-- Input Card -->
