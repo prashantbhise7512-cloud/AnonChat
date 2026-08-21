@@ -68,9 +68,12 @@ object TestSession {
         return uid
     }
 
-    /** Clears only the active flag, so the uid and cached profile survive a re-login. */
+    /** Clears active session flag and language selection flag so language screen is loaded on logout. */
     fun signOut(context: Context) {
-        prefs(context).edit().putBoolean(KEY_ACTIVE, false).apply()
+        prefs(context).edit()
+            .putBoolean(KEY_ACTIVE, false)
+            .putBoolean("has_selected_language", false)
+            .apply()
     }
 
     fun phoneNumber(context: Context): String =

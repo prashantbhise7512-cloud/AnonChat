@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- White Chat Bubble -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,28 h40 c5.5,0 10,4.5 10,10 v26 c0,5.5 -4.5,10 -10,10 h-24 l-12,12 v-12 h-4 c-5.5,0 -10,-4.5 -10,-10 v-26 c0,-5.5 4.5,-10 10,-10 z" />
+    <!-- Anon Avatar Head -->
+    <path
+        android:fillColor="#1B72C0"
+        android:pathData="M54,43 c3.3,0 6,-2.7 6,-6 c0,-3.3 -2.7,-6 -6,-6 c-3.3,0 -6,2.7 -6,6 c0,3.3 2.7,6 6,6 z" />
+    <!-- Anon Avatar Body -->
+    <path
+        android:fillColor="#1B72C0"
+        android:pathData="M54,47 c-4.4,0 -12,2.2 -12,6.5 v3.5 h24 v-3.5 c0,-4.3 -7.6,-6.5 -12,-6.5 z" />
+</vector>

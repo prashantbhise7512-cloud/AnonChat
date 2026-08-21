@@ -50,6 +50,8 @@ const TestSession = {
         localStorage.removeItem(this.KEY_UID);
         localStorage.removeItem(this.KEY_PHONE);
         localStorage.removeItem("anonchat_guest_uid");
+        localStorage.removeItem("anonchat_web_language");
+        localStorage.removeItem("has_selected_language");
     },
 
     uid: function () {
@@ -2139,14 +2141,13 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
     const btnLogout = document.getElementById("btnLogout");
     btnLogout.addEventListener("click", () => {
         if (confirm("Logout? You'll need to verify your phone again.")) {
+            localStorage.removeItem("anonchat_web_language");
+            localStorage.removeItem("has_selected_language");
             if (TEST_MODE) {
-                // Clears only the active flag; uid and cached profile survive for re-login.
                 TestSession.signOut();
                 window.location.reload();
             } else {
-                firebase.auth().signOut().then(() => {
-                    window.location.reload();
-                }).catch(() => {
+                firebase.auth().signOut().finally(() => {
                     window.location.reload();
                 });
             }
@@ -3562,6 +3563,25 @@ document.addEventListener("DOMContentLoaded", () => {
     setupPhotoEvents();
     setupMessageSheetEvents();
     setupAccountPrivacyEvents();
+
+    const btnBackToLanguageWeb = document.getElementById("btnBackToLanguageWeb");
+    if (btnBackToLanguageWeb) {
+        btnBackToLanguageWeb.addEventListener("click", () => {
+            const authStepOtp = document.getElementById("authStepOtp");
+            const authStepPhone = document.getElementById("authStepPhone");
+            if (authStepOtp && authStepOtp.classList.contains("auth-step-active")) {
+                authStepOtp.classList.remove("auth-step-active");
+                if (authStepPhone) authStepPhone.classList.add("auth-step-active");
+            } else {
+                localStorage.removeItem("anonchat_web_language");
+                localStorage.removeItem("has_selected_language");
+                const authScreen = document.getElementById("authScreen");
+                const langScreen = document.getElementById("languageScreen");
+                if (authScreen) authScreen.classList.add("hidden");
+                if (langScreen) langScreen.classList.remove("hidden");
+            }
+        });
+    }
 
     const hasSelectedLang = localStorage.getItem("anonchat_web_language");
     const langScreen = document.getElementById("languageScreen");

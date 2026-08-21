@@ -51,7 +51,7 @@ class AccountPrivacyActivity : AppCompatActivity() {
                 .setPositiveButton(getString(R.string.logout_confirm)) { _, _ ->
                     FirebaseAuth.getInstance().signOut()
                     TestSession.signOut(this)
-                    val intent = Intent(this, AuthActivity::class.java).apply {
+                    val intent = Intent(this, LanguageSelectionActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     }
                     startActivity(intent)
@@ -128,7 +128,7 @@ class AccountPrivacyActivity : AppCompatActivity() {
                 val onComplete = {
                     com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
                     TestSession.signOut(this)
-                    val intent = Intent(this, AuthActivity::class.java).apply {
+                    val intent = Intent(this, LanguageSelectionActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     }
                     startActivity(intent)

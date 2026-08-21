@@ -109,6 +109,17 @@ class AuthActivity : AppCompatActivity() {
         setupCountryCodeSpinner()
         setupClickListeners()
 
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (otpSection.visibility == View.VISIBLE) {
+                    otpSection.visibility = View.GONE
+                    phoneSection.visibility = View.VISIBLE
+                } else {
+                    navigateToLanguageSelection()
+                }
+            }
+        })
+
         if (TEST_MODE) {
             tvTestModeNotice.visibility = View.VISIBLE
         }
@@ -149,6 +160,16 @@ class AuthActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
+        val btnBackToLanguage = findViewById<View>(R.id.btnBackToLanguage)
+        btnBackToLanguage?.setOnClickListener {
+            if (otpSection.visibility == View.VISIBLE) {
+                otpSection.visibility = View.GONE
+                phoneSection.visibility = View.VISIBLE
+            } else {
+                navigateToLanguageSelection()
+            }
+        }
+
         btnSendCode.setOnClickListener {
             hideError()
             val phoneNumber = getFullPhoneNumber()
@@ -516,6 +537,15 @@ class AuthActivity : AppCompatActivity() {
     }
 
     // --- Navigation ---
+
+    private fun navigateToLanguageSelection() {
+        if (hasNavigated || isFinishing) return
+        hasNavigated = true
+        val intent = Intent(this, LanguageSelectionActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
 
     private fun navigateToChatList() {
         if (hasNavigated || isFinishing) return

@@ -8,6 +8,19 @@
     android:padding="32dp"
     tools:context=".AuthActivity">
 
+    <!-- Back to Language Button -->
+    <ImageView
+        android:id="@+id/btnBackToLanguage"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Back to language selection"
+        android:padding="8dp"
+        android:src="@drawable/ic_back"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/on_surface" />
+
     <!-- App Logo -->
     <ImageView
         android:id="@+id/ivLogo"
