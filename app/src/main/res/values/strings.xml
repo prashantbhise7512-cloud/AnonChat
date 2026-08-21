@@ -61,6 +61,7 @@
     <string name="auth_countdown">Resend in %ds</string>
     <string name="auth_test_mode_notice">TEST MODE: OTP verification is bypassed. Any phone number and any code will sign you in.</string>
     <string name="profile_title">Profile</string>
+    <string name="profile_display_name">Display Name</string>
     <string name="profile_name_hint">Display Name</string>
     <string name="profile_gender_hint">Gender</string>
     <string name="profile_age_hint">Age</string>
