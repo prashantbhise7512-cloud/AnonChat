@@ -93,4 +93,7 @@
     <string name="session_identity">Your identity for this session</string>
     <string name="no_one_knows">No one knows who you are 🎭</string>
     <string name="not_specified">Not specified</string>
+    <string name="attach_photo">Attach Photo</string>
+    <string name="take_photo_camera">📷 Take Photo (Camera)</string>
+    <string name="choose_from_gallery">🖼️ Choose from Gallery</string>
 </resources>

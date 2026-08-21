@@ -86,7 +86,7 @@ class SavedChatAdapter(
             ivAvatar.setImageResource(R.drawable.ic_default_avatar)
             when (chat.partnerGender) {
                 "Female" -> ivAvatar.borderColor = android.graphics.Color.parseColor("#E91E63")
-                else -> ivAvatar.borderColor = itemView.resources.getColor(R.color.primary, itemView.context.theme)
+                else -> ivAvatar.borderColor = com.anonchat.app.ThemeManager.getPrimaryColor(itemView.context)
             }
 
             if (!chat.partnerAvatar.isNullOrEmpty()) {

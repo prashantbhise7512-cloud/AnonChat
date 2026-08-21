@@ -1564,6 +1564,25 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
     }
     updateAvatarRemoveButton();
 
+    // Click profile picture to view it full-screen (not to change it)
+    const profileAvatarEl = document.getElementById("profileAvatar");
+    if (profileAvatarEl) {
+        profileAvatarEl.style.cursor = "pointer";
+        profileAvatarEl.addEventListener("click", function(e) {
+            // Don't open lightbox if the click was on the camera badge or its children
+            if (e.target.closest(".avatar-edit-badge")) return;
+            const currentAvatar = localStorage.getItem(AVATAR_KEY);
+            if (currentAvatar) {
+                const lightboxModal = document.getElementById("imageLightboxModal");
+                const lightboxImg = document.getElementById("lightboxImage");
+                if (lightboxModal && lightboxImg) {
+                    lightboxImg.src = currentAvatar;
+                    lightboxModal.classList.remove("hidden");
+                }
+            }
+        });
+    }
+
     if (btnRemoveAvatar) {
         btnRemoveAvatar.addEventListener("click", function() {
             localStorage.removeItem(AVATAR_KEY);
@@ -1630,15 +1649,22 @@ function initChatApp(authenticatedUserId, authenticatedUserName) {
         if (viewProfileCity) viewProfileCity.textContent = profileCity.value.trim() || "Not specified";
     }
 
+    const webCardTheme = document.getElementById("webCardTheme");
+    const webCardAccountPrivacy = document.getElementById("webCardAccountPrivacy");
+
     function setProfileEditState(isEditing) {
         if (isEditing) {
             profileViewMode.classList.add("hidden");
             profileEditMode.classList.remove("hidden");
             if (btnEditProfile) btnEditProfile.classList.add("hidden");
+            if (webCardTheme) webCardTheme.classList.add("hidden");
+            if (webCardAccountPrivacy) webCardAccountPrivacy.classList.add("hidden");
         } else {
             profileEditMode.classList.add("hidden");
             profileViewMode.classList.remove("hidden");
             if (btnEditProfile) btnEditProfile.classList.remove("hidden");
+            if (webCardTheme) webCardTheme.classList.remove("hidden");
+            if (webCardAccountPrivacy) webCardAccountPrivacy.classList.remove("hidden");
             profileSaveStatus.textContent = "";
         }
     }
@@ -3298,6 +3324,12 @@ function setupPhotoEvents() {
         currentIsSaved = isSaved;
         if (modal) modal.classList.remove("hidden");
     };
+
+    if (modal) {
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) modal.classList.add("hidden");
+        });
+    }
 
     const btnAttachWeb = document.getElementById("btnAttachPhotoWeb");
     if (btnAttachWeb) {

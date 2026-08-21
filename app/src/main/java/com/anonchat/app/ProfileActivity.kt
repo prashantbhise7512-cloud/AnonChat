@@ -69,6 +69,8 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var btnEditProfileDetails: MaterialButton
     private lateinit var btnCancelEdit: MaterialButton
     private lateinit var btnRemovePhoto: TextView
+    private var cardTheme: View? = null
+    private var cardAccountPrivacy: View? = null
 
     private var fromLogin = false
     private var isEditMode = false
@@ -144,6 +146,8 @@ class ProfileActivity : AppCompatActivity() {
         btnEditProfileDetails = findViewById(R.id.btnEditProfileDetails)
         btnCancelEdit = findViewById(R.id.btnCancelEdit)
         btnRemovePhoto = findViewById(R.id.btnRemovePhoto)
+        cardTheme = findViewById(R.id.cardTheme)
+        cardAccountPrivacy = findViewById(R.id.cardAccountPrivacy)
     }
 
     private fun setupToolbar() {
@@ -172,11 +176,22 @@ class ProfileActivity : AppCompatActivity() {
             btnRemovePhoto.visibility = View.GONE
         }
 
-        // Click to change photo
+        // Click camera icon or "Change Photo" text to change photo
         ivCameraIcon.setOnClickListener { launchGalleryPicker() }
-        ivProfilePic.setOnClickListener { launchGalleryPicker() }
         val tvChangePhoto = findViewById<TextView>(R.id.tvChangePhoto)
         tvChangePhoto?.setOnClickListener { launchGalleryPicker() }
+
+        // Click profile picture to view it full-screen
+        ivProfilePic.setOnClickListener {
+            val currentUid = TestSession.currentUserId(this) ?: "unknown"
+            val avatarBase64 = prefs.getString("avatar_$currentUid", null)
+            if (avatarBase64 != null) {
+                val intent = Intent(this, PhotoViewActivity::class.java).apply {
+                    putExtra(PhotoViewActivity.EXTRA_IMAGE_BASE64, avatarBase64)
+                }
+                startActivity(intent)
+            }
+        }
 
         // Remove photo listener
         btnRemovePhoto.setOnClickListener {
@@ -468,18 +483,23 @@ class ProfileActivity : AppCompatActivity() {
         tilCity.visibility = if (enabled && !fromLogin) View.VISIBLE else View.GONE
         etCity.isEnabled = enabled && !fromLogin
         ivCameraIcon.isEnabled = enabled
-        ivProfilePic.isEnabled = enabled
         val alpha = if (enabled) 1f else 0.6f
         ivCameraIcon.alpha = alpha
-        ivProfilePic.alpha = alpha
+        // Profile pic is always clickable (opens full-screen view)
+        ivProfilePic.isEnabled = true
+        ivProfilePic.alpha = 1f
 
         if (enabled) {
             llProfileViewMode.visibility = View.GONE
             llProfileEditMode.visibility = View.VISIBLE
+            cardTheme?.visibility = View.GONE
+            cardAccountPrivacy?.visibility = View.GONE
         } else {
             updateViewModeDisplays()
             llProfileEditMode.visibility = View.GONE
             llProfileViewMode.visibility = View.VISIBLE
+            cardTheme?.visibility = View.VISIBLE
+            cardAccountPrivacy?.visibility = View.VISIBLE
         }
 
         btnSaveProfile.isEnabled = true

@@ -329,7 +329,7 @@
                 </div>
 
                 <!-- Theme & Language Settings Card -->
-                <div class="profile-card">
+                <div class="profile-card" id="webCardTheme">
                     <h3 class="profile-card-title">🎨 App Theme Color</h3>
                     <p class="profile-card-subtitle">Choose your preferred color theme or Dark mode</p>
                     <div class="theme-circles-container">
@@ -343,7 +343,7 @@
                 </div>
 
                 <!-- Account & Settings Card -->
-                <div class="profile-card">
+                <div class="profile-card" id="webCardAccountPrivacy">
                     <button id="btnOpenAccountPrivacyWeb" class="btn-menu-row">
                         <span>🔒 Account & Privacy</span>
                         <span class="row-arrow">›</span>
@@ -444,7 +444,12 @@
         </div>
         <div class="input-area">
             <div class="input-wrapper">
-                <button type="button" id="btnAttachPhotoWeb" class="btn-attach-photo" title="Attach Photo" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">📷</button>
+                <button type="button" id="btnAttachPhotoWeb" class="btn-attach-photo" title="Attach Photo" aria-label="Attach Photo" style="background: none; border: none; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; color: var(--primary-color, #1B72C0);">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                    </svg>
+                </button>
                 <input type="file" id="photoFileInput" accept="image/*" class="hidden"/>
                 <input type="file" id="photoCameraInput" accept="image/*" capture="environment" class="hidden"/>
                 <input type="text" id="messageInput" placeholder="Type a message…" autocomplete="off" maxlength="500"/>
@@ -476,7 +481,12 @@
         <div id="savedMessagesContainer" class="messages-container"></div>
         <div class="input-area">
             <div class="input-wrapper">
-                <button type="button" id="btnSavedAttachPhotoWeb" class="btn-attach-photo" title="Attach Photo" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">📷</button>
+                <button type="button" id="btnSavedAttachPhotoWeb" class="btn-attach-photo" title="Attach Photo" aria-label="Attach Photo" style="background: none; border: none; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; color: var(--primary-color, #1B72C0);">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                    </svg>
+                </button>
                 <input type="file" id="savedPhotoFileInput" accept="image/*" class="hidden"/>
                 <input type="file" id="savedPhotoCameraInput" accept="image/*" capture="environment" class="hidden"/>
                 <input type="text" id="savedMessageInput" placeholder="Type a message…" autocomplete="off" maxlength="500"/>
@@ -516,20 +526,29 @@
     </div>
 
     <!-- Photo Source Modal (Camera vs Gallery) -->
-    <div id="photoSourceModal" class="bottom-sheet-overlay hidden" style="z-index: 1100;">
-        <div class="bottom-sheet-content" style="max-width: 360px; margin: 0 auto; text-align: center; padding: 20px;">
+    <div id="photoSourceModal" class="bottom-sheet-overlay hidden" style="z-index: 3000;">
+        <div class="bottom-sheet-content photo-source-content">
             <div class="sheet-handle"></div>
-            <h3 style="margin: 0 0 16px 0; font-size: 1.1rem; color: #fff;">Attach Photo</h3>
-            <div class="sheet-actions" style="display: flex; flex-direction: column; gap: 8px;">
-                <button id="btnPickCamera" class="sheet-action-btn" style="color: #10B981; font-weight: 600; font-size: 1rem; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2c2c2e; border: 1px solid #3a3a3c; border-radius: 12px; cursor: pointer;">
-                    <span>📷 Take Photo (Camera)</span>
+            <h3 class="photo-source-title">Attach Photo</h3>
+            <div class="photo-source-actions">
+                <button type="button" id="btnPickCamera" class="photo-source-btn camera-btn">
+                    <div class="photo-btn-icon-bg camera-icon-bg">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="#10B981">
+                            <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+                            <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                        </svg>
+                    </div>
+                    <span class="photo-btn-text">Take Photo (Camera)</span>
                 </button>
-                <button id="btnPickGallery" class="sheet-action-btn" style="color: #3B82F6; font-weight: 600; font-size: 1rem; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #2c2c2e; border: 1px solid #3a3a3c; border-radius: 12px; cursor: pointer;">
-                    <span>🖼️ Choose from Gallery</span>
+                <button type="button" id="btnPickGallery" class="photo-source-btn gallery-btn">
+                    <div class="photo-btn-icon-bg gallery-icon-bg">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="#3B82F6">
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                    </div>
+                    <span class="photo-btn-text">Choose from Gallery</span>
                 </button>
-                <button id="btnCancelPhotoSource" class="sheet-action-btn" style="color: #8e8e93; margin-top: 4px; padding: 12px; background: transparent; border: none; cursor: pointer;">
-                    <span>Cancel</span>
-                </button>
+                <button type="button" id="btnCancelPhotoSource" class="photo-source-cancel">Cancel</button>
             </div>
         </div>
     </div>

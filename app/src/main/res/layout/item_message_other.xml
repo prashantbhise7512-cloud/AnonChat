@@ -22,7 +22,7 @@
             android:id="@+id/tvSender"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/primary"
+            android:textColor="?attr/colorPrimary"
             android:textSize="@dimen/sender_text_size"
             android:textStyle="bold" />
 
@@ -42,7 +42,7 @@
                 android:id="@+id/tvQuotedSender"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 

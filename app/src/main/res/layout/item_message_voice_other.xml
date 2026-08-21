@@ -33,7 +33,7 @@
                 android:id="@+id/tvQuotedSender"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
@@ -61,15 +61,15 @@
                 android:contentDescription="Play/Pause"
                 android:padding="6dp"
                 android:src="@drawable/ic_play"
-                app:tint="@color/primary" />
+                app:tint="?attr/colorPrimary" />
 
             <SeekBar
                 android:id="@+id/seekBarAudio"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:progressTint="@color/primary"
-                android:thumbTint="@color/primary" />
+                android:progressTint="?attr/colorPrimary"
+                android:thumbTint="?attr/colorPrimary" />
 
             <TextView
                 android:id="@+id/tvDuration"

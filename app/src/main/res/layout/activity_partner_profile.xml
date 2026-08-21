@@ -14,7 +14,7 @@
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:background="@color/primary"
+        android:background="?attr/colorPrimary"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -77,7 +77,7 @@
                         android:layout_width="100dp"
                         android:layout_height="100dp"
                         android:src="@drawable/ic_default_avatar"
-                        app:civ_border_color="@color/primary"
+                        app:civ_border_color="?attr/colorPrimary"
                         app:civ_border_width="3dp" />
 
                     <TextView

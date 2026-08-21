@@ -29,6 +29,7 @@ class WelcomeActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
 
         val hasSelectedLang = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)

@@ -952,3 +952,94 @@ body.dark-mode .sheet-action-btn:hover { background: #2a2a2a; }
 .action-reply { color: #1E88E5; }
 .action-edit { color: #2E7D32; }
 .action-delete { color: #E53935; }
+
+/* ===== PHOTO SOURCE MODAL ===== */
+.photo-source-content {
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    padding: 16px 20px 24px 20px;
+    background: #ffffff;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+body.dark-mode .photo-source-content {
+    background: #1C1C1E;
+}
+.photo-source-title {
+    margin: 4px 0 18px 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1C1C1E;
+}
+body.dark-mode .photo-source-title {
+    color: #FFFFFF;
+}
+.photo-source-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.photo-source-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    border: 1px solid #E5E5EA;
+    background: #F8F9FA;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+body.dark-mode .photo-source-btn {
+    background: #2C2C2E;
+    border-color: #3A3A3C;
+}
+.photo-source-btn:hover {
+    background: #F2F2F7;
+    transform: translateY(-1px);
+}
+body.dark-mode .photo-source-btn:hover {
+    background: #3A3A3C;
+}
+.photo-btn-icon-bg {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.camera-icon-bg {
+    background: rgba(16, 185, 129, 0.15);
+}
+.gallery-icon-bg {
+    background: rgba(59, 130, 246, 0.15);
+}
+.photo-btn-text {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #1C1C1E;
+}
+body.dark-mode .photo-btn-text {
+    color: #FFFFFF;
+}
+.photo-source-cancel {
+    margin-top: 6px;
+    padding: 12px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: #8E8E93;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.photo-source-cancel:hover {
+    color: #FF3B30;
+}

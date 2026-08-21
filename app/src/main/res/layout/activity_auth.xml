@@ -21,7 +21,7 @@
         app:layout_constraintBottom_toTopOf="@id/tvHeading"
         app:layout_constraintVertical_chainStyle="packed"
         app:layout_constraintVertical_bias="0.15"
-        app:tint="@color/primary" />
+        app:tint="?attr/colorPrimary" />
 
     <!-- Heading -->
     <TextView
@@ -112,7 +112,7 @@
             android:textColor="@color/white"
             android:textSize="16sp"
             android:textStyle="bold"
-            app:backgroundTint="@color/primary"
+            app:backgroundTint="?attr/colorPrimary"
             app:cornerRadius="26dp" />
 
     </LinearLayout>
@@ -161,7 +161,7 @@
             android:textColor="@color/white"
             android:textSize="16sp"
             android:textStyle="bold"
-            app:backgroundTint="@color/primary"
+            app:backgroundTint="?attr/colorPrimary"
             app:cornerRadius="26dp" />
 
         <!-- Resend Code Button -->
@@ -173,7 +173,7 @@
             android:layout_marginTop="12dp"
             android:layout_gravity="center_horizontal"
             android:text="@string/auth_resend_code"
-            android:textColor="@color/primary"
+            android:textColor="?attr/colorPrimary"
             android:enabled="false" />
 
         <!-- Countdown Timer Text -->
@@ -210,7 +210,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        android:indeterminateTint="@color/primary"
+        android:indeterminateTint="?attr/colorPrimary"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

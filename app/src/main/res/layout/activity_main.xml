@@ -12,7 +12,7 @@
         android:id="@+id/toolbar"
         android:layout_width="0dp"
         android:layout_height="64dp"
-        android:background="@color/primary"
+        android:background="?attr/colorPrimary"
         android:elevation="@dimen/toolbar_elevation"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -81,7 +81,7 @@
             android:id="@+id/tvIdentity"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/primary"
+            android:textColor="?attr/colorPrimary"
             android:textSize="13sp"
             android:textStyle="bold"
             tools:text="You are SwiftFox472" />
@@ -104,7 +104,7 @@
             android:id="@+id/searchSpinner"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:indeterminateTint="@color/primary" />
+            android:indeterminateTint="?attr/colorPrimary" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -229,7 +229,7 @@
                 android:id="@+id/tvReplyingToSender"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/primary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 tools:text="Replying to AnonUser" />

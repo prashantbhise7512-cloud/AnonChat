@@ -64,6 +64,26 @@ class LanguageSelectionActivity : AppCompatActivity() {
                 finish()
             }
         } else {
+            val hasSelectedLang = getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
+                .getBoolean("has_selected_language", false)
+
+            val isAuthenticated = if (AuthActivity.TEST_MODE) {
+                TestSession.isActive(this)
+            } else {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
+            }
+
+            if (hasSelectedLang) {
+                val nextIntent = if (isAuthenticated) {
+                    Intent(this, ChatListActivity::class.java)
+                } else {
+                    Intent(this, AuthActivity::class.java)
+                }
+                startActivity(nextIntent)
+                finish()
+                return
+            }
+
             btnContinue.visibility = android.view.View.VISIBLE
             llProfileActions?.visibility = android.view.View.GONE
 
@@ -72,11 +92,10 @@ class LanguageSelectionActivity : AppCompatActivity() {
                 getSharedPreferences("anonchat_prefs", MODE_PRIVATE)
                     .edit().putBoolean("has_selected_language", true).apply()
 
-                val currentUserId = TestSession.currentUserId(this)
-                val nextIntent = if (!currentUserId.isNullOrBlank()) {
+                val nextIntent = if (isAuthenticated) {
                     Intent(this, ChatListActivity::class.java)
                 } else {
-                    Intent(this, WelcomeActivity::class.java)
+                    Intent(this, AuthActivity::class.java)
                 }
                 startActivity(nextIntent)
                 finish()

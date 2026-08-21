@@ -70,15 +70,19 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Connect to a chat room to send photos", Toast.LENGTH_SHORT).show()
             return
         }
-        val options = arrayOf("📷 Take Photo (Camera)", "🖼️ Choose from Gallery")
+        val options = arrayOf(
+            getString(R.string.take_photo_camera),
+            getString(R.string.choose_from_gallery)
+        )
         AlertDialog.Builder(this)
-            .setTitle("Attach Photo")
+            .setTitle(getString(R.string.attach_photo))
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> cameraLauncher.launch(null)
                     1 -> photoPickerLauncher.launch("image/*")
                 }
             }
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
 

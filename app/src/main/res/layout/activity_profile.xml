@@ -10,7 +10,7 @@
         android:id="@+id/toolbar"
         android:layout_width="0dp"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/primary"
+        android:background="?attr/colorPrimary"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -63,7 +63,7 @@
                             android:layout_width="100dp"
                             android:layout_height="100dp"
                             android:src="@drawable/ic_default_avatar"
-                            app:civ_border_color="@color/primary"
+                            app:civ_border_color="?attr/colorPrimary"
                             app:civ_border_width="3dp" />
 
                         <ImageView
@@ -90,7 +90,7 @@
                             android:layout_height="wrap_content"
                             android:padding="4dp"
                             android:text="@string/profile_change_photo"
-                            android:textColor="@color/primary"
+                            android:textColor="?attr/colorPrimary"
                             android:textSize="12sp"
                             android:textStyle="bold" />
 
@@ -103,23 +103,25 @@
                             android:text="@string/profile_remove_photo"
                             android:textColor="#FFD32F2F"
                             android:textSize="12sp"
-                            android:textStyle="bold"
-                            android:visibility="gone" />
+                            android:textStyle="bold" />
                     </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvUniqueId"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_id_badge"
                         android:fontFamily="monospace"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
                         android:textColor="@color/text_secondary"
-                        android:textIsSelectable="true"
-                        android:textSize="10sp" />
+                        android:textSize="12sp"
+                        tools:text="ID: #A8F4C2" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Personal Info Card -->
+            <!-- Profile Details Card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -134,36 +136,25 @@
                     android:orientation="vertical"
                     android:padding="20dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:text="@string/personal_details"
-                        android:textColor="@color/on_surface"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
-
-                    <!-- View Mode Container (Default) -->
+                    <!-- View Mode Container -->
                     <LinearLayout
                         android:id="@+id/llProfileViewMode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
-                        <!-- Row: Display Name -->
+                        <!-- View Mode Items... -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginBottom="8dp"
-                            android:background="@drawable/bg_input_field"
-                            android:orientation="horizontal"
-                            android:padding="12dp">
+                            android:layout_marginBottom="16dp"
+                            android:orientation="vertical">
 
                             <TextView
-                                android:layout_width="0dp"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="@string/display_name"
+                                android:layout_marginBottom="2dp"
+                                android:text="@string/profile_display_name"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
                                 android:textStyle="bold" />
@@ -172,25 +163,22 @@
                                 android:id="@+id/tvViewName"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="AnnoUser"
+                                android:text="@string/not_specified"
                                 android:textColor="@color/on_surface"
-                                android:textSize="14sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
-                        <!-- Row: Gender -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginBottom="8dp"
-                            android:background="@drawable/bg_input_field"
-                            android:orientation="horizontal"
-                            android:padding="12dp">
+                            android:layout_marginBottom="16dp"
+                            android:orientation="vertical">
 
                             <TextView
-                                android:layout_width="0dp"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
+                                android:layout_marginBottom="2dp"
                                 android:text="@string/gender"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
@@ -206,19 +194,16 @@
                                 android:textStyle="bold" />
                         </LinearLayout>
 
-                        <!-- Row: Age -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginBottom="8dp"
-                            android:background="@drawable/bg_input_field"
-                            android:orientation="horizontal"
-                            android:padding="12dp">
+                            android:layout_marginBottom="16dp"
+                            android:orientation="vertical">
 
                             <TextView
-                                android:layout_width="0dp"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
+                                android:layout_marginBottom="2dp"
                                 android:text="@string/age"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
@@ -234,19 +219,16 @@
                                 android:textStyle="bold" />
                         </LinearLayout>
 
-                        <!-- Row: City -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginBottom="12dp"
-                            android:background="@drawable/bg_input_field"
-                            android:orientation="horizontal"
-                            android:padding="12dp">
+                            android:layout_marginBottom="20dp"
+                            android:orientation="vertical">
 
                             <TextView
-                                android:layout_width="0dp"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
+                                android:layout_marginBottom="2dp"
                                 android:text="@string/city"
                                 android:textColor="@color/text_secondary"
                                 android:textSize="12sp"
@@ -268,7 +250,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
                             android:text="@string/btn_edit_profile"
-                            android:textColor="@color/primary"
+                            android:textColor="?attr/colorPrimary"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             app:backgroundTint="#E3F2FD"
@@ -373,7 +355,7 @@
                                 android:text="@string/btn_save_changes"
                                 android:textSize="15sp"
                                 android:textStyle="bold"
-                                app:backgroundTint="@color/primary"
+                                app:backgroundTint="?attr/colorPrimary"
                                 app:cornerRadius="12dp" />
 
                             <com.google.android.material.button.MaterialButton
@@ -425,7 +407,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_marginTop="12dp"
-                android:indeterminateTint="@color/primary"
+                android:indeterminateTint="?attr/colorPrimary"
                 android:visibility="gone" />
 
             <!-- Error -->
@@ -440,6 +422,7 @@
 
             <!-- App Theme Color Card -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardTheme"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="20dp"
@@ -601,6 +584,7 @@
 
             <!-- Account & Privacy Single Card -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardAccountPrivacy"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="20dp"

@@ -10,7 +10,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/primary"
+        android:background="?attr/colorPrimary"
         app:navigationIcon="@drawable/ic_back"
         app:navigationIconTint="@color/white"
         app:title="@string/blocked_users"
